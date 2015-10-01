@@ -20,12 +20,12 @@ Access CBaaS services from your favorite language: MATLAB/Octave, Python, Julia,
 Building
 --------
 
-Server dependencies: PostgreSQL, Haskell, Snap, Servant, icu
+Server dependencies: PostgreSQL, Haskell, Snap, Servant, icu, zlib
 
 ## Ubuntu 14.04
 
 ```bash
-sudo apt-get install postgresql ghc libicu-dev
+sudo apt-get install build-essential postgresql ghc libicu-dev zlib1g-dev
 export PATH=$HOME/.cabal/bin:$PATH
 git clone http://github.com/CBMM/CBaaS
 git submodule update --init --recursive
