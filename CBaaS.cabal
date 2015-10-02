@@ -26,6 +26,8 @@ library
                      , map-syntax
                      , process >=1.2 && <1.3
                      , servant >= 0.5
+                     , servant-docs >= 0.5
+                     , servant-js >= 0.5 && < 0.6
                      , servant-server >= 0.5 && < 0.6
                      , snap >= 1.0 && < 1.1
                      , snap-core >= 1.0 && < 1.1
@@ -36,9 +38,11 @@ library
                      , uuid >= 1.3.11 && < 1.4
   hs-source-dirs:      src
   exposed-modules:     API
+                       APIDocs
                        Types
                        Server.Application
                        Server.Site
+                       ClientGen.JS
   build-tools:         hsc2hs
   default-language:    Haskell2010
 
