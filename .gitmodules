@@ -1,12 +1,3 @@
 [submodule "deps/servant-snap"]
 	path = deps/servant-snap
 	url = http://github.com/haskell-servant/servant-snap
-[submodule "deps/snap"]
-	path = deps/snap
-	url = http://github.com/snapframework/snap
-[submodule "deps/snap-loader-static"]
-	path = deps/snap-loader-static
-	url = http://github.com/snapframework/snap-loader-static
-[submodule "deps/snap-loader-dynamic"]
-	path = deps/snap-loader-dynamic
-	url = http://github.com/snapframework/snap-loader-dynamic
