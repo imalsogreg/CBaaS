@@ -23,23 +23,19 @@ import           Types
 --   generate documentation and clients in a number of languages
 --   For more information about API specifications, see the Servant
 --   <http://haskell-servant.github.io documentation>
-type API1 =             
-                    "stimulus"      :> CrudAPI EntityID StimulusResource
-                    :<|> "feature"  :> CrudAPI EntityID Features
-                    :<|> "user"     :> UserAPI
+type API1 = "user"     :> UserAPI
+  :<|> "stimulus"      :> CrudAPI EntityID StimulusResource
+  :<|> "feature"  :> CrudAPI EntityID Features
 
 
 ------------------------------------------------------------------------------
 -- | User session sub-api
 --   Clients and this sites pages use this API for user and session management
 type UserAPI =
-            "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo :> Post '[JSON] ()
-
-            :<|> "register" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo :> Post '[JSON] ()
-
-            :<|> "user" :> Get '[JSON] User
-
-            :<|> "logout" :> Post '[JSON] ()
+       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo :> Post '[JSON] ()
+  :<|> "register" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo :> Post '[JSON] ()
+  :<|> "user" :> Get '[JSON] User
+  :<|> "logout" :> Post '[JSON] ()
 
 
 ------------------------------------------------------------------------------

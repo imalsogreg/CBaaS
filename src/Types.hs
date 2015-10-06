@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -15,6 +14,11 @@ import           Data.Aeson    ((.:), (.=), ToJSON(..), FromJSON(..))
 import           Data.Text     (Text, pack, unpack)
 import qualified Data.UUID     as UUID
 import           Data.UUID     (UUID, fromText, toText)
+import           Database.PostgreSQL.Simple
+import           Database.PostgreSQL.Simple.ToRow
+import           Database.PostgreSQL.Simple.FromRow
+import           Database.PostgreSQL.Simple.ToField
+import           Database.PostgreSQL.Simple.FromField
 import           GHC.Generics
 
 
@@ -31,8 +35,8 @@ newtype EntityID = EntityID { unID :: UUID }
 --   derived from it. Mime type is provided as a sanity check and to allow
 --   clients to avoid downloading certain stimulus types if needed
 data StimulusResource = StimulusResource
-  { _srId   :: EntityID
-  , _srUrl  :: ResourceURL
+  { --_srId   :: EntityID
+    _srUrl  :: ResourceURL
   , _srMime :: ResourceMedia
   } deriving (Show, Eq, Ord, Generic)
 
@@ -40,8 +44,8 @@ data StimulusResource = StimulusResource
 -- | Feature data, completely open-ended (any JSON data), but tagged with an
 --   ID and metadata
 data Features = Features
-  { _featuresId   :: EntityID
-  , _featuresMeta :: A.Value
+  { -- _featuresId   :: EntityID
+    _featuresMeta :: A.Value
   , _featuresData :: A.Value
   } deriving (Show, Eq, Generic)
 
@@ -95,6 +99,16 @@ instance FromJSON Features where
 instance ToJSON   User where
 instance FromJSON User where
 
+instance ToRow EntityID where
+  toRow (EntityID i) = [toField i]
+
+instance ToRow StimulusResource where
+  toRow (StimulusResource u m) = [toField u, toField m]
+
+instance ToRow Features where
+  toRow (Features m d) = [toField m, toField d]
+
+
 
 ------------------------------------------------------------------------------
 -- | Custom wrapper around a mime-type, allowing us to define interactions
@@ -109,40 +123,8 @@ newtype ResourceMedia = ResourceMedia { unMedia :: Text }
 newtype ResourceURL = ResourceURL { unURL :: Text }
   deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
+instance ToField ResourceURL where
+  toField (ResourceURL u) = toField u
 
--- ------------------------------------------------------------------------------
--- -- | Convert a StimulusResource into a JSON object, one field at a time
--- instance ToJSON StimulusResource where
---   toJSON s = A.object ["id"   .= _srId   s
---                       ,"url"  .= _srUrl  s
---                       ,"mime" .= _srMime s
---                       ]
-
--- ------------------------------------------------------------------------------
--- -- | Retrieve a StimulusResource from a JSON object, one field at a time
--- instance FromJSON StimulusResource where
---   parseJSON (A.Object v) = do
---     i <- v .: "id"
---     u <- v .: "url"
---     m <- v .: "mime"
---     return (StimulusResource i u m)
-
-
--- ------------------------------------------------------------------------------
--- -- | Serialize a Feature set
--- instance ToJSON Features where
---   toJSON s = A.object ["id"   .= UUID.toText (_featuresId s)
---                       ,"meta" .= _featuresMeta s
---                       ,"data" .= _featuresData s
---                       ]
-
--- ------------------------------------------------------------------------------
--- -- | Deserialize a Feature set
--- instance FromJSON Features where
---   parseJSON (A.Object v) = do
---     i <- v .: "id"
---     m <- v .: "meta"
---     d <- v .: "data"
---     case UUID.fromText i of
---       Nothing -> mzero
---       Just i' -> return (Features i' m d)
+instance ToField ResourceMedia where
+  toField (ResourceMedia m) = toField m

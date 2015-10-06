@@ -1,1 +1,4 @@
 :set +c
+import Data.Proxy
+import Servant.Matlab
+import Servant.Matlab.Functions
