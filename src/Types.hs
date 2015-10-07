@@ -11,15 +11,17 @@ module Types where
 import           Control.Monad (mzero)
 import qualified Data.Aeson    as A
 import           Data.Aeson    ((.:), (.=), ToJSON(..), FromJSON(..))
+import           Data.Monoid   ((<>))
 import           Data.Text     (Text, pack, unpack)
 import qualified Data.UUID     as UUID
-import           Data.UUID     (UUID, fromText, toText)
+import           Data.UUID     (UUID, fromByteString, toByteString)
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.ToRow
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.FromField
 import           GHC.Generics
+import           Servant.API
 
 
 ------------------------------------------------------------------------------
@@ -63,6 +65,18 @@ data LoginInfo = LoginInfo
 instance ToJSON   LoginInfo where
 instance FromJSON LoginInfo where
 
+instance FromFormUrlEncoded LoginInfo where
+  fromFormUrlEncoded xs = case res of
+    Just li -> Right li
+    Nothing -> Left  "Failed to parse LoginInfo"
+    where res = do
+            u <- lookup "username" xs
+            p <- lookup "password" xs
+            l <- case lookup "remember" xs of
+                   Just "true" -> return True
+                   _           -> return False
+            return (LoginInfo u p l)
+
 
 data RegisterInfo = RegisterInfo
   { _riUsername :: Text
@@ -72,12 +86,19 @@ data RegisterInfo = RegisterInfo
 instance ToJSON   RegisterInfo where
 instance FromJSON RegisterInfo where
 
+instance FromFormUrlEncoded RegisterInfo where
+  fromFormUrlEncoded xs = case res of
+    Just ri -> Right ri
+    Nothing -> Left "Failed to parse RegisterInfo"
+    where res = RegisterInfo
+                <$> lookup "username" xs
+                <*> lookup "password" xs
 
 ------------------------------------------------------------------------------
 -- | Convert an ID to JSON. Construct a JSON String value from the
 --   textual representation of the UUID
 instance ToJSON EntityID where
-  toJSON (EntityID u) = A.String (toText u)
+  toJSON (EntityID u) = A.String (UUID.toText u)
 
 
 ------------------------------------------------------------------------------
@@ -102,29 +123,47 @@ instance FromJSON User where
 instance ToField EntityID where
   toField (EntityID i) = toField i
 
+instance FromField EntityID where
+  fromField a b = EntityID <$> fromField a b
+
+instance FromText EntityID where
+  fromText t = EntityID <$> UUID.fromText t
+
+instance FromFormUrlEncoded EntityID where
+  fromFormUrlEncoded [("id", t)] =
+    case UUID.fromText t of
+      Nothing -> Left . unpack $ "Id parse error on text:" <> t
+      Just i  -> Right $ EntityID i
+  fromFormUrlEncoded _ = Left "No query param 'id'"
+
+instance ToRow EntityID where
+  toRow i = [toField i]
+
+instance FromRow EntityID where
+  fromRow = field
+
 instance ToRow StimulusResource where
   toRow (StimulusResource i u m) = [toField i, toField u, toField m]
 
 instance ToRow Features where
   toRow (Features i m d) = [toField i, toField m, toField d]
 
+instance FromRow StimulusResource where
+  fromRow = StimulusResource <$> field <*> field <*> field
+
+instance FromRow Features where
+  fromRow = Features <$> field <*> field <*> field
 
 
 ------------------------------------------------------------------------------
 -- | Custom wrapper around a mime-type, allowing us to define interactions
 --   with type classes
 newtype ResourceMedia = ResourceMedia { unMedia :: Text }
-  deriving (Eq, Ord, Show, ToJSON, FromJSON)
+  deriving (Eq, Ord, Show, ToJSON, FromJSON, FromField, ToField)
 
 
 ------------------------------------------------------------------------------
 -- | Custom wrapper around a URL, allowing us to define interactions
 --   with type classes
 newtype ResourceURL = ResourceURL { unURL :: Text }
-  deriving (Eq, Ord, Show, ToJSON, FromJSON)
-
-instance ToField ResourceURL where
-  toField (ResourceURL u) = toField u
-
-instance ToField ResourceMedia where
-  toField (ResourceMedia m) = toField m
+  deriving (Eq, Ord, Show, ToJSON, FromJSON, FromField, ToField)

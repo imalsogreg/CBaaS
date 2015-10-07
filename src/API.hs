@@ -46,5 +46,5 @@ type CrudAPI i v =
   Get '[JSON] [v]
   :<|> Capture "id"    i :> Get     '[JSON] v
   :<|> ReqBody '[JSON] v :> Post    '[JSON] i
-  :<|> Capture "id"    i :> ReqBody '[JSON] v :> Put '[JSON] i
-  :<|> Capture "id"    i :> Delete  '[JSON] i
+  :<|> Capture "id"    i :> ReqBody '[JSON] v :> Put '[JSON] Bool
+  :<|> Capture "id"    i :> Delete  '[JSON] Bool
