@@ -33,6 +33,7 @@ library
                      , servant-snap >= 0.5 && < 0.6
                      , snap >= 1.0 && < 1.1
                      , snap-core >= 1.0 && < 1.1
+                     , mtl >= 2.2.1 && < 2.3
                      , transformers >=0.4 && <0.5
                      , text >=1.2 && < 1.3
                      , time >=1.5 && <1.6
@@ -44,6 +45,7 @@ library
                        Types
                        Server.Application
                        Server.Site
+                       Server.APIServer
                        ClientGen.JS
   build-tools:         hsc2hs
   default-language:    Haskell2010

@@ -35,8 +35,8 @@ newtype EntityID = EntityID { unID :: UUID }
 --   derived from it. Mime type is provided as a sanity check and to allow
 --   clients to avoid downloading certain stimulus types if needed
 data StimulusResource = StimulusResource
-  { --_srId   :: EntityID
-    _srUrl  :: ResourceURL
+  { _srId   :: EntityID
+  , _srUrl  :: ResourceURL
   , _srMime :: ResourceMedia
   } deriving (Show, Eq, Ord, Generic)
 
@@ -44,8 +44,8 @@ data StimulusResource = StimulusResource
 -- | Feature data, completely open-ended (any JSON data), but tagged with an
 --   ID and metadata
 data Features = Features
-  { -- _featuresId   :: EntityID
-    _featuresMeta :: A.Value
+  { _featuresId   :: EntityID
+  , _featuresMeta :: A.Value
   , _featuresData :: A.Value
   } deriving (Show, Eq, Generic)
 
@@ -99,14 +99,14 @@ instance FromJSON Features where
 instance ToJSON   User where
 instance FromJSON User where
 
-instance ToRow EntityID where
-  toRow (EntityID i) = [toField i]
+instance ToField EntityID where
+  toField (EntityID i) = toField i
 
 instance ToRow StimulusResource where
-  toRow (StimulusResource u m) = [toField u, toField m]
+  toRow (StimulusResource i u m) = [toField i, toField u, toField m]
 
 instance ToRow Features where
-  toRow (Features m d) = [toField m, toField d]
+  toRow (Features i m d) = [toField i, toField m, toField d]
 
 
 

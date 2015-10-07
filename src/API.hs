@@ -43,7 +43,8 @@ type UserAPI =
 --   of type `v` indexed by values of type `i`. We can reuse this API
 --   for any new types we come up with
 type CrudAPI i v =
-  Capture "id"    i :> Get     '[JSON] v
+  Get '[JSON] [v]
+  :<|> Capture "id"    i :> Get     '[JSON] v
   :<|> ReqBody '[JSON] v :> Post    '[JSON] i
   :<|> Capture "id"    i :> ReqBody '[JSON] v :> Put '[JSON] i
   :<|> Capture "id"    i :> Delete  '[JSON] i

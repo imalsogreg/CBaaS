@@ -17,8 +17,9 @@ import qualified Data.Text as T
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
-import           Snap.Snaplet.Auth.Backends.JsonFile
+import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Heist
+import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
 import qualified Heist.Interpreted as I
@@ -74,6 +75,7 @@ routes = [ ("login",    with auth handleLoginSubmit)
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
+    d <- nestSnaplet "db" db pgsInit
     h <- nestSnaplet "" heist $ heistInit "templates"
     s <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
@@ -82,8 +84,8 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     -- doesn't require any kind of database server to run.  In practice,
     -- you'll probably want to change this to a more robust auth backend.
     a <- nestSnaplet "auth" auth $
-           initJsonFileAuthManager defAuthSettings sess "users.json"
+           initPostgresAuth sess d
     addRoutes routes
     addAuthSplices h auth
-    return $ App h s a
+    return $ App h s d a
 
