@@ -11,14 +11,21 @@ module Server.APIServer where
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
---import Database.PostgreSQL.Simple
+import Data.ByteString (ByteString)
 import Data.Maybe (listToMaybe)
+import Data.Monoid ((<>))
 import Data.Proxy
---import Database.PostgreSQL.Simple.SqlQQ
+import Data.Text.Encoding (encodeUtf8)
+import Database.PostgreSQL.Simple.Types
 import Servant.API
 import Servant.Server
+import Snap.Snaplet
+import Snap.Snaplet.Auth
 import Snap.Snaplet.PostgresqlSimple
 import API
+import EntityID
+import Permissions
+import User
 import Types
 import Server.Application
 
@@ -30,21 +37,34 @@ serverAPI = serverAuth
        :<|> crudServer (Proxy :: Proxy Features)
 
 serverAuth :: Server UserAPI AppHandler
-serverAuth = undefined
+serverAuth =
+  let loginServer li = lift $ with auth $ do
+        u <- loginByUsername (_liUsername li)
+                             (ClearText . encodeUtf8 $ _liPassword li)
+                             (_liRemember li)
+        either (error "login error") return u
 
-class (ToRow v, FromRow v) => Crud v where
-  getAllQuery :: Proxy v -> Query
-  getQuery    :: Proxy v -> Query
-  postQuery   :: Proxy v -> Query
-  putQuery    :: Proxy v -> Query
-  deleteQuery :: Proxy v -> Query
+      registerServer ri = lift $ with auth $ do
+        u <- createUser (_riUsername ri) (encodeUtf8 (_riPassword ri))
+        either (error "Registration error") return u
+
+      currentUserServer = lift $ with auth currentUser
+
+      logoutServer = lift $ with auth logout
+
+  in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
 
 instance Crud StimulusResource where
-  getAllQuery _ = "SELECT * FROM stimulusresource"
+  tableName   _ = "stimulusresource"
+  rowNames    _ = "meta, stim"
+  getAllQuery p =
+    Query ("SELECT * FROM " <> tableName p <> "\n" <> canRead)
+
   getQuery    _ = "SELECT * FROM stimulusresource where id=(?)"
   postQuery   _ = "INSERT INTO stimulusresource VALUES ?"
   putQuery    _ = "UPDATE stimulusresource (id, url, mime) with values (?,?,?)"
   deleteQuery _ = "DELETE FROM stimilusresource WHERE id=(?)"
+
 
 instance Crud Features where
   getAllQuery _ = "SELECT * FROM features"

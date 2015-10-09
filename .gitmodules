@@ -4,3 +4,6 @@
 [submodule "deps/snaplet-postgresql-simple"]
 	path = deps/snaplet-postgresql-simple
 	url = http://github.com/mightybyte/snaplet-postgresql-simple
+[submodule "deps/servant-matlab"]
+	path = deps/servant-matlab
+	url = http://github.com/imalsogreg/servant-matlab

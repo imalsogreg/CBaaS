@@ -71,9 +71,10 @@ handleNewUser = method GET handleForm <|> method POST handleFormSubmit
 -- | The application's routes.
 routes :: [(ByteString, Handler App App ())]
 routes = [ ("login"   , with auth handleLoginSubmit)
+         , ("test"    , writeBS "Test handler")
          , ("logout"  , with auth handleLogout)
          , ("new_user", with auth handleNewUser)
-         , ("api"     , applicationToSnap (serve (Proxy :: Proxy API1) serverAPI))
+         , ("api1"    , applicationToSnap (serve (Proxy :: Proxy API1) serverAPI))
          , (""        , serveDirectory "static" )
          ]
 
@@ -91,4 +92,3 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     addRoutes routes
     addAuthSplices h auth
     return $ App h s d a
-

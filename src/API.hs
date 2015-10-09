@@ -14,6 +14,10 @@ import qualified Data.UUID     as UUID
 import           Data.UUID     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
                                ,Capture, ReqBody, Raw, FormUrlEncoded)
+import           Snap.Snaplet.Auth
+import           EntityID
+import           Permissions
+import           User
 import           Types
 
 
@@ -23,19 +27,24 @@ import           Types
 --   generate documentation and clients in a number of languages
 --   For more information about API specifications, see the Servant
 --   <http://haskell-servant.github.io documentation>
-type API1 = "user"     :> UserAPI
-  :<|> "stimulus"      :> CrudAPI EntityID StimulusResource
-  :<|> "feature"  :> CrudAPI EntityID Features
+type API1 = "user"        :> UserAPI
+  :<|> "stimulusresource" :> CrudAPI EntityID StimulusResource
+  :<|> "feature"          :> CrudAPI EntityID Features
 
 
 ------------------------------------------------------------------------------
 -- | User session sub-api
 --   Clients and this sites pages use this API for user and session management
 type UserAPI =
-       "login" :> ReqBody '[FormUrlEncoded, JSON] LoginInfo :> Post '[JSON] ()
-  :<|> "register" :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo :> Post '[JSON] ()
-  :<|> "user" :> Get '[JSON] User
-  :<|> "logout" :> Post '[JSON] ()
+       "login"       :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
+                     :> Post '[JSON] AuthUser
+
+  :<|> "register"    :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
+                     :> Post '[JSON] AuthUser
+
+  :<|> "currentuser" :> Get '[JSON] (Maybe AuthUser)
+
+  :<|> "logout"      :> Post '[JSON] ()
 
 
 ------------------------------------------------------------------------------

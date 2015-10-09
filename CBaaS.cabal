@@ -30,6 +30,7 @@ library
                      , servant >= 0.5
                      , servant-docs >= 0.5
                      , servant-js >= 0.5 && < 0.6
+                     , servant-matlab >= 0.5 && < 0.6
                      , servant-snap >= 0.5 && < 0.6
                      , snap >= 1.0 && < 1.1
                      , snap-core >= 1.0 && < 1.1
@@ -42,11 +43,16 @@ library
   hs-source-dirs:      src
   exposed-modules:     API
                        APIDocs
+                       EntityID
+                       Permissions
+                       User
                        Types
                        Server.Application
                        Server.Site
                        Server.APIServer
+                       Server.Crud
                        ClientGen.JS
+                       ClientGen.Matlab
   build-tools:         hsc2hs
   default-language:    Haskell2010
 
