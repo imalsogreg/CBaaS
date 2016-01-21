@@ -18,6 +18,7 @@ module Main where
 ------------------------------------------------------------------------------
 import           Control.Exception (SomeException, try)
 import qualified Data.Text as T
+import           Network.WebSockets
 import           Snap.Http.Server
 import           Snap.Snaplet
 import           Snap.Snaplet.Config

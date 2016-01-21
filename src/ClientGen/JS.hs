@@ -9,16 +9,5 @@ import Servant.JS
 
 import API
 
---jsCode :: String
---jsCode = jsForAPI (Proxy :: Proxy API1) vanillaJS
-
-
-type I = (Get '[JSON] Int)
-
-pI :: Proxy I
-pI = Proxy
-
-type U = UserAPI
-
-pU :: Proxy U
-pU = Proxy
+jsCode :: String
+jsCode = jsForAPI (Proxy :: Proxy API1) vanillaJS

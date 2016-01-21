@@ -46,6 +46,21 @@ cabal install --only-dep
 cabal build
 ```
 
+Deploying/Running
+-----------------
+
+## Ubuntu 14.04
+
+```Ubuntu
+# This script copies the server executable and static assests by scp
+./deploy.sh your_key_pair.pem user@example.com
+
+# Set up the sql server
+ssh -i your_key_pair.pem user@example.com
+sudo apt-get install postgresql-client postgresql postgresql-contrib
+```
+
+sudo apt-get install 
 Forking
 -------
 
