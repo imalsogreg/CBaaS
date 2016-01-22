@@ -28,6 +28,7 @@ import Permissions
 import User
 import Types
 import Server.Application
+import Server.Crud
 
 ------------------------------------------------------------------------------
 -- | Top-level API server implementation
@@ -35,6 +36,7 @@ serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
        :<|> crudServer (Proxy :: Proxy StimulusResource)
        :<|> crudServer (Proxy :: Proxy Features)
+
 
 serverAuth :: Server UserAPI AppHandler
 serverAuth =
@@ -54,31 +56,27 @@ serverAuth =
 
   in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
 
+
 instance Crud StimulusResource where
   tableName   _ = "stimulusresource"
-  rowNames    _ = "meta, stim"
-  getAllQuery p =
-    Query ("SELECT * FROM " <> tableName p <> "\n" <> canRead)
-
-  getQuery    _ = "SELECT * FROM stimulusresource where id=(?)"
-  postQuery   _ = "INSERT INTO stimulusresource VALUES ?"
-  putQuery    _ = "UPDATE stimulusresource (id, url, mime) with values (?,?,?)"
-  deleteQuery _ = "DELETE FROM stimilusresource WHERE id=(?)"
+  tableRows _ = [RowDescription "meta"  "json" ""
+                ,RowDescription "value" "json" ""
+                ]
 
 
 instance Crud Features where
-  getAllQuery _ = "SELECT * FROM features"
-  getQuery    _ = "SELECT * FROM features where id=(?)"
-  postQuery   _ = "INSERT INTO features VALUES ?"
-  putQuery    _ = "UPDATE features (id, meta, data) with values (?,?,?)"
-  deleteQuery _ = "DELETE FROM features WHERE id=(?)"
+  tableName _ = "features"
+  tableRows _ = [RowDescription "meta" "json" ""
+                ,RowDescription "value" "json" ""
+                ]
+
 
 crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI EntityID v) AppHandler
 crudServer p =
   let getAll   = lift (query_ (getAllQuery p))
 
       get i    = lift $ do
-        rs <- query (getQuery p) (Only i)
+        rs <- query (getOneQuery p) (Only i)
         case rs of
           [r] -> return r
           _        -> error "Get failure"

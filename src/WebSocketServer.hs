@@ -5,12 +5,14 @@ module WebSocketServer where
 
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
-import Data.ByteString.Char8 (unpack)
+import Data.Bifunctor (first)
+import Data.ByteString.Char8 (ByteString, unpack)
 import Data.List
 import Data.Map
 import Snap.Snaplet.PostgresqlSimple
 import System.IO
 import qualified Network.WebSockets as WS
+import URI.ByteString
 
 import Job
 import qualified Model as Model
@@ -28,13 +30,21 @@ launchWebsocketServer :: Postgres
 launchWebsocketServer pg workers jobs results = do
   WS.runServer "0.0.0.0" 9160 $ \pending -> do
     c <- WS.acceptRequest pending
-    case [reqPath pending] `intersect` ["/worker","/browser"] of
-      ["/worker"] -> do
-        putStrLn "Launching Worker WS"
-        hFlush stdout
-        myChan <- atomically $ dupTChan jobs
-        return ()
-      ["/browser"] -> do
+    let uri = parseRelativeRef strictURIParserOptions (reqPath pending)
+    case rrPath <$> uri of
+      Right "/worker" -> do
+        case parseWorkerProfile =<< first show (fmap rrQuery uri) of
+          Left e -> putStrLn e
+          Right wp -> do
+            print "Saw a wp"
+            putStrLn "Launching Worker WS"
+            hFlush stdout
+            WS.sendTextData c ("Hello websocket!" :: ByteString)
+            r <- WS.receiveData c
+            print (unpack r)
+            myChan <- atomically $ dupTChan jobs
+            return ()
+      Right "/browser" -> do
         putStrLn "Launching Browser WS"
         hFlush stdout
         return ()

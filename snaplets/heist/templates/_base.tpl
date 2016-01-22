@@ -9,7 +9,7 @@
     <title><pageTitle/></title>
 
     <staticscripts/>
-
+    <script src="http://code.jquery.com/jquery-2.2.0.min.js"></script>
     <!-- Bootstrap core CSS -->
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
 

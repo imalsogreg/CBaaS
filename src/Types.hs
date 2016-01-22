@@ -42,6 +42,9 @@ data Stimulus = SLink Text
               | SJson Value
                 -- ^ A Generic JSON value. Maximum flexibility, but we won't
                 --   be able to make much use of them on the site
+              | STuple Stimulus Stimulus
+                -- ^ 
+              | SList [Stimulus]
   deriving (Eq, Show, Generic)
 
 

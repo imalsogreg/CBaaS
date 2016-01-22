@@ -1,4 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 ------------------------------------------------------------------------------
 -- | This module is where all the routes and handlers are defined for your
@@ -10,7 +11,12 @@ module Server.Site
 
 ------------------------------------------------------------------------------
 import           Control.Applicative
+import           Control.Concurrent
+import           Control.Concurrent.STM
+import           Control.Lens
+import           Control.Monad.IO.Class
 import           Data.ByteString (ByteString)
+import           Data.Map (empty)
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
@@ -29,8 +35,10 @@ import           Snap.Util.FileServe
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           API
+-- import           Combo
 import           Server.Application
 import           Server.APIServer
+import           WebSocketServer
 
 
 ------------------------------------------------------------------------------
@@ -83,12 +91,24 @@ routes = [ ("login"   , with auth handleLoginSubmit)
 -- | The application initializer.
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
-    d <- nestSnaplet "db" db pgsInit
-    h <- nestSnaplet "" heist $ heistInit "templates"
-    s <- nestSnaplet "sess" sess $
+    cfg <- getSnapletUserConfig
+    -- c   <- nestSnaplet "" combo comboInit
+    p   <- nestSnaplet "db" db pgsInit
+    h   <- nestSnaplet "" heist $ heistInit "templates"
+    s   <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
-    a <- nestSnaplet "auth" auth $
-           initPostgresAuth sess d
+    a   <- nestSnaplet "auth" auth $
+             initPostgresAuth sess p
+    w   <- liftIO $ newTVarIO Data.Map.empty
+    j   <- liftIO newBroadcastTChanIO
+    r   <- liftIO newBroadcastTChanIO
     addRoutes routes
-    addAuthSplices h auth
-    return $ App h s d a
+    _ <- liftIO $ forkIO $
+         atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
+         uncurry (launchWebsocketServer (p ^. snapletValue) w)
+    return $ App h p s a w j r
+
+-- comboInit :: SnapletInit b ComboState
+-- comboInit = makeSnaplet "combo" "Postgres and websocket worker state" Nothing $ do
+--   cfg <- getSnapletUserConfig
+--   liftIO $ mkComboState cfg
