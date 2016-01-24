@@ -6,6 +6,7 @@ module Worker where
 
 import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Exception
 import Control.Monad (forever, mzero)
 import Data.Aeson
 import qualified Data.Aeson as A
@@ -53,17 +54,34 @@ instance ToJSON WorkerProfile where
 initializeWorker :: WS.PendingConnection
                  -> WorkerProfile
                  -- ^ Worker setup info
+                 -> TVar (Map.Map WorkerID Worker)
+                 -- ^ Worker map - for self-inserting and deleting
                  -> TChan (WorkerID, JobID, Model.Val)
                  -- ^ Completion write channel
-                 -> IO Worker
-initializeWorker pending wp resultsChan = do
+                 -> IO ()
+initializeWorker pending wp workers resultsChan = do
   conn     <- WS.acceptRequest pending
   i        <- WorkerID <$> nextRandom
   jobsChan <- atomically newTChan
-  forkIO $ forever $ do
-    job <- atomically $ readTChan jobsChan
-    WS.sendTextData conn (encode job)
-  return $ Worker wp i conn jobsChan
+  let worker = Worker wp i conn jobsChan
+  atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
+  flip finally (disconnect i) $ do
+        _ <- forkIO $ forever $ do
+          job <- atomically $ readTChan jobsChan
+          WS.sendTextData conn (encode job)
+        listen conn
+        
+  return ()
+  where
+    disconnect i = do
+        print "Disconnect"
+        atomically $ modifyTVar workers $ Map.delete i
+    listen conn = do
+      print "Listen"
+      msg <- WS.receive conn
+      case msg of
+        WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
+        x -> print x >> listen conn
 
 newtype WorkerID = WorkerID { unWorkerID :: UUID }
   deriving (Eq, Ord, Show)

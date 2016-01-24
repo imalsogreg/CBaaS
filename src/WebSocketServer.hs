@@ -39,15 +39,10 @@ launchWebsocketServer pg workers jobs results = do
         case parseWorkerProfile =<< first show (fmap rrQuery uri) of
           Left e -> putStrLn e
           Right wp -> do
-            worker <- initializeWorker pending wp resultsChan
-            atomically (modifyTVar workers (Map.insert (_wID worker) worker))
+            () <- initializeWorker pending wp workers resultsChan
             print "Saw a wp"
             putStrLn "Launching Worker WS"
             hFlush stdout
-            -- WS.sendTextData c ("Hello websocket!" :: ByteString)
-            -- r <- WS.receiveData c
-            -- print (unpack r)
-            -- myChan <- atomically $ dupTChan jobs
             return ()
       Right "/browser" -> do
         putStrLn "Launching Browser WS"
