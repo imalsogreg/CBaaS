@@ -9,9 +9,12 @@
 
 module Server.APIServer where
 
+import Control.Concurrent.STM
 import Control.Monad.IO.Class
+import Control.Monad.State (gets)
 import Control.Monad.Trans.Class
 import Data.ByteString (ByteString)
+import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 import Data.Monoid ((<>))
 import Data.Proxy
@@ -24,6 +27,7 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.PostgresqlSimple
 import API
 import EntityID
+import Worker
 import Permissions
 import User
 import Types
@@ -36,6 +40,7 @@ serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
        :<|> crudServer (Proxy :: Proxy StimulusResource)
        :<|> crudServer (Proxy :: Proxy Features)
+       :<|> listWorkers
 
 
 serverAuth :: Server UserAPI AppHandler
@@ -100,3 +105,10 @@ crudServer p =
           _        -> error "Delete error"
 
   in getAll :<|> get :<|> post :<|> put :<|> delete
+
+listWorkers :: Server (Get '[JSON] WorkerMap) AppHandler
+listWorkers = do
+  -- w <- gets _workers
+  -- wrks <- liftIO $ atomically (readTVar w)
+  wrks <- liftIO . atomically . readTVar =<< gets _workers
+  return (WorkerMap $ Map.map _wProfile wrks)

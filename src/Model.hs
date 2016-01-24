@@ -3,6 +3,7 @@
 
 module Model where
 
+import Control.Monad (mzero)
 import Data.Text
 import GHC.TypeLits
 import qualified Data.Aeson as A
@@ -34,5 +35,20 @@ import qualified Data.Aeson as A
 data Expr = Expr A.Value
   deriving (Eq, Show)
 
+
+instance A.ToJSON Expr where
+  toJSON (Expr v) = v
+
+instance A.FromJSON Expr where
+  parseJSON (A.Object v) = pure (Expr $ A.Object v)
+  parseJSON _            = mzero
+
 data Val = VAny A.Value
   deriving (Eq, Show)
+
+instance A.ToJSON Val where
+  toJSON (VAny v) = v
+
+instance A.FromJSON Val where
+  parseJSON (A.Object v) = pure (VAny $ A.Object v)
+  parseJSON _            = mzero

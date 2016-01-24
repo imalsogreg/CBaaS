@@ -9,6 +9,7 @@ module API where
 import           Control.Monad (mzero)
 import qualified Data.Aeson    as A
 import           Data.Aeson    ((.:), (.=), ToJSON(..), FromJSON(..))
+import           Data.Map      (Map)
 import           Data.Text     (Text, pack, unpack)
 import qualified Data.UUID     as UUID
 import           Data.UUID     (UUID, fromText, toText)
@@ -17,6 +18,7 @@ import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
 import           Snap.Snaplet.Auth
 import           EntityID
 import           Permissions
+import           Worker
 import           User
 import           Types
 
@@ -30,6 +32,7 @@ import           Types
 type API1 = "user"        :> UserAPI
   :<|> "stimulusresource" :> CrudAPI EntityID StimulusResource
   :<|> "feature"          :> CrudAPI EntityID Features
+  :<|> "worker"           :> Get '[JSON] WorkerMap
 
 
 ------------------------------------------------------------------------------
