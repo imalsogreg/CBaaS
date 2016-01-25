@@ -9,10 +9,9 @@
   </div>
 
   <div class="workers">
-    <ul id="workers">
-      <li><span>Test1</span></li>
-      <li><span>Test2</span></li>
-    </ul>
+    <table id="workers">
+      
+    </table>
   </div>
 
   <script src="http://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.73/Bacon.js"></script>
