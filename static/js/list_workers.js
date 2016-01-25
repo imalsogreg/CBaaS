@@ -1,6 +1,7 @@
 var w = undefined;
 
 var workers = {};
+var functions = {};
 
 $('document').ready(function (){
     w = new WebSocket('ws://localhost:9160/browser');
@@ -8,13 +9,22 @@ $('document').ready(function (){
         console.log(m.data);
         var msg = JSON.parse(m.data);
         // console.log(msg);
+        var thisFunc = msg.contents[1].function;
+        console.log(thisFunc);
         if (msg.tag == "WorkerJoined") {
             workers[msg.contents[0]] = msg.contents[1];
+            if(functions[thisFunc]) {
+                functions[thisFunc].push(msg.contents[0]);
+            } else {
+                functions[thisFunc] = [msg.contents[0]];
+            }
         } else if (msg.tag === "WorkerLeft") {
-            console.log(msg.contents);
-            console.log( typeof(msg.contents) );
-            console.log( "DELETING KEY " + msg.contents);
+            thisFunc = workers[msg.contents].function;
             delete workers[msg.contents];
+            functions[thisFunc] =
+                filter( functions[thisFunc].filter(function(i) {
+                    return (i != msg.contents);
+                }));
         }
         console.log(workers);
         listWorkers();
