@@ -2,7 +2,7 @@ funs = [];
 
 $('document').ready(function (){
 
-    $.ajax('workers', {'success': function(dat){
+    $.ajax('api1/worker', {'success': function(dat){
         console.log(dat);
     }, 'failure': function(e) {
         console.log(e);

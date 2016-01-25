@@ -100,13 +100,14 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     a   <- nestSnaplet "auth" auth $
              initPostgresAuth sess p
     w   <- liftIO $ newTVarIO Data.Map.empty
+    b   <- liftIO $ newTVarIO Data.Map.empty
     j   <- liftIO newBroadcastTChanIO
     r   <- liftIO newBroadcastTChanIO
     addRoutes routes
     _ <- liftIO $ forkIO $
          atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
-         uncurry (launchWebsocketServer (p ^. snapletValue) w)
-    return $ App h p s a w j r
+         uncurry (launchWebsocketServer (p ^. snapletValue) w b)
+    return $ App h p s a w b j r
 
 -- comboInit :: SnapletInit b ComboState
 -- comboInit = makeSnaplet "combo" "Postgres and websocket worker state" Nothing $ do

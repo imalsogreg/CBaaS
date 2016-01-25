@@ -67,6 +67,7 @@ library
                        WebSocketServer
                        Job
                        Worker
+                       Browser
   build-tools:         hsc2hs
   default-language:    Haskell2010
 

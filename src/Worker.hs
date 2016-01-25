@@ -49,51 +49,50 @@ instance ToJSON WorkerProfile where
              ,"function" .= f
              ,"tags" .= t]
 
-------------------------------------------------------------------------------
--- Setup a worker and fork a thread for talking with a worker client process
-initializeWorker :: WS.PendingConnection
-                 -> WorkerProfile
-                 -- ^ Worker setup info
-                 -> TVar (Map.Map WorkerID Worker)
-                 -- ^ Worker map - for self-inserting and deleting
-                 -> TChan (WorkerID, JobID, Model.Val)
-                 -- ^ Completion write channel
-                 -> IO ()
-initializeWorker pending wp workers resultsChan = do
-  conn     <- WS.acceptRequest pending
-  i        <- WorkerID <$> nextRandom
-  jobsChan <- atomically newTChan
-  let worker = Worker wp i conn jobsChan
-  atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
-  flip finally (disconnect i) $ do
-        _ <- forkIO $ forever $ do
-          job <- atomically $ readTChan jobsChan
-          WS.sendTextData conn (encode job)
-        listen conn
-        
-  return ()
-  where
-    disconnect i = do
-        print "Disconnect"
-        atomically $ modifyTVar workers $ Map.delete i
-    listen conn = do
-      print "Listen"
-      msg <- WS.receive conn
-      case msg of
-        WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
-        x -> print x >> listen conn
+instance FromJSON WorkerProfile where
+  parseJSON (A.Object o) = WorkerProfile
+    <$> o .: "name"
+    <*> o .: "function"
+    <*> o .: "tags"
 
 newtype WorkerID = WorkerID { unWorkerID :: UUID }
   deriving (Eq, Ord, Show)
 
+instance ToJSON WorkerID where
+  toJSON (WorkerID i) = A.String $ UUID.toText i
+
+instance FromJSON WorkerID where
+  parseJSON (A.String s) = case UUID.fromText s of
+    Nothing -> mzero
+    Just i  -> return $ WorkerID i
+  parseJSON _ = mzero
+
 newtype WorkerName = WorkerName { unWN :: Text }
   deriving (Eq, Ord, Show, Generic)
 
+instance ToJSON WorkerName where
+  toJSON (WorkerName n) = A.String n
+
+instance FromJSON WorkerName where
+  parseJSON (A.String n) = return $ WorkerName n
+  parseJSON _ = mzero
 
 data JobResult = JobResult
   { jrVal    :: Model.Val
   , jrWorker :: WorkerID
   } deriving (Eq, Show)
+
+instance ToJSON JobResult where
+  toJSON (JobResult v w) = A.object ["value"  .= v
+                                    ,"worker" .= w
+                                    ]
+
+instance FromJSON JobResult where
+  parseJSON (A.Object o) = JobResult
+    <$> o .: "value"
+    <*> o .: "worker"
+  parseJSON _ = mzero
+
 
 parseWorkerProfile :: Query -> Either String WorkerProfile
 parseWorkerProfile q = do

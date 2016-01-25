@@ -20,18 +20,20 @@ import Snap.Snaplet.Session
 
 import Combo
 import Worker
+import Browser
 import Job
 import qualified Model as Model
 
 ------------------------------------------------------------------------------
 data App = App
-    { _heist   :: Snaplet (Heist App)
-    , _db      :: Snaplet Postgres
-    , _sess    :: Snaplet SessionManager
-    , _auth    :: Snaplet (AuthManager App)
-    , _workers :: TVar  (Map WorkerID Worker)
-    , _jqueue  :: TChan (WorkerID, JobID, Model.Val)
-    , _rqueue  :: TChan (WorkerID, JobID, Model.Val)
+    { _heist    :: Snaplet (Heist App)
+    , _db       :: Snaplet Postgres
+    , _sess     :: Snaplet SessionManager
+    , _auth     :: Snaplet (AuthManager App)
+    , _workers  :: TVar  (Map WorkerID Worker)
+    , _browsers :: TVar (Map BrowserID Browser)
+    , _jqueue   :: TChan (WorkerID, JobID, Model.Val)
+    , _rqueue   :: TChan (WorkerID, JobID, Model.Val)
     -- , _combo :: Snaplet ComboState -- TODO: having trouble
                                       --       with SnapletInit here
     }

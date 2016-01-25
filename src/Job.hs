@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -19,6 +20,7 @@ instance ToJSON JobID where
 
 instance FromJSON JobID where
   parseJSON (String s) = maybe mzero (return . JobID) (fromText s)
+  parseJSON _          = mzero
 
 makeLenses ''JobID
 
@@ -35,3 +37,9 @@ instance ToJSON Job where
                     ,"function" .= (j^.jFunName)
                     ,"args"     .= (j^.jArgs)]
 
+instance FromJSON Job where
+  parseJSON (Object o) = Job
+    <$> o .: "id"
+    <*> o .: "function"
+    <*> o .: "args"
+  parseJSON _ = undefined

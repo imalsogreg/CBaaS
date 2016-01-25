@@ -16,6 +16,7 @@
   </div>
 
   <script src="http://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.73/Bacon.js"></script>
-  <script src="js/job_requester.js"/>
+  <script src="js/job_requester.js"></script>
+  <script src="js/list_workers.js"></script>
 
 </div>
