@@ -4,11 +4,14 @@
 
 module Job where
 
+import Servant.API
 import Control.Monad (mzero)
 import Control.Lens hiding ((.=))
 import Data.Aeson
+import qualified Data.Aeson as A
 import Data.Text
 import Data.UUID
+import qualified Data.UUID as UUID
 
 import Model
 
@@ -16,30 +19,53 @@ newtype JobID = JobID { _unJobID :: UUID }
   deriving (Eq, Show, Ord)
 
 instance ToJSON JobID where
-  toJSON (JobID uu) = String $ toText uu
+  toJSON (JobID uu) = String $ UUID.toText uu
 
 instance FromJSON JobID where
-  parseJSON (String s) = maybe mzero (return . JobID) (fromText s)
+  parseJSON (String s) = maybe mzero (return . JobID) (UUID.fromText s)
   parseJSON _          = mzero
+
+instance FromText JobID where
+  fromText t = JobID <$> UUID.fromText t
 
 makeLenses ''JobID
 
 data Job = Job
-  { _jID      :: JobID
-  , _jFunName :: Text
-  , _jArgs    :: [Model.Val]
+  { -- _jID      :: JobID
+    _jFunName :: Text
+  , _jArg     :: Model.Val
   } deriving (Eq, Show)
 
 makeLenses ''Job
 
 instance ToJSON Job where
-  toJSON j = object ["id"       .= (j^.jID)
-                    ,"function" .= (j^.jFunName)
-                    ,"args"     .= (j^.jArgs)]
+  toJSON j = object [ -- "id"       .= (j^.jID)
+                     "function" .= (j^.jFunName)
+                    ,"arg"     .= (j^.jArg)]
 
 instance FromJSON Job where
   parseJSON (Object o) = Job
-    <$> o .: "id"
-    <*> o .: "function"
-    <*> o .: "args"
+--     <$> o .: "id"
+    <$> o .: "function"
+    <*> o .: "arg"
   parseJSON _ = undefined
+
+data JobResult = JobResult
+  { jrVal    :: Model.Val
+  -- , jrWorker :: WorkerID
+  , jrJob    :: JobID
+  } deriving (Eq, Show)
+
+instance ToJSON JobResult where
+  toJSON (JobResult v j) = A.object ["value"  .= v
+    --                                  ,"worker" .= w
+                                      ,"job"    .= j
+                                      ]
+
+instance FromJSON JobResult where
+  parseJSON (A.Object o) = JobResult
+    <$> o .: "value"
+    -- <*> o .: "worker"
+    <*> o .: "job"
+  parseJSON _ = mzero
+

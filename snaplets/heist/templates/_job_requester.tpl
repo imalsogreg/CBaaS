@@ -1,5 +1,20 @@
 <div class="job-requester">
 
+  <h2>Call function</h2>
+
+  <form>
+    <input type="text"
+           placeholder="reverse" id="fun-name"/>
+    <input type="text"
+           placeholder="Hello" id="fun-args"/>
+    <button class="btn btn-default"
+            type="button" id="call-button"
+            onclick="callFun()">Call</button>
+  </form>
+
+  <br/>
+
+  <h2>Evaluate expression</h2>
   <div class="input-group">
     <input type="text" class="form-control"
            placeholder="Expression..." id="expr-text"/>

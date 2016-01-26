@@ -19,9 +19,11 @@ import Data.Maybe (listToMaybe)
 import Data.Monoid ((<>))
 import Data.Proxy
 import Data.Text.Encoding (encodeUtf8)
+import Data.UUID.V4
 import Database.PostgreSQL.Simple.Types
 import Servant.API
 import Servant.Server
+import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
 import Snap.Snaplet.PostgresqlSimple
@@ -33,6 +35,8 @@ import User
 import Types
 import Server.Application
 import Server.Crud
+import Browser
+import Job
 
 ------------------------------------------------------------------------------
 -- | Top-level API server implementation
@@ -41,6 +45,7 @@ serverAPI = serverAuth
        :<|> crudServer (Proxy :: Proxy StimulusResource)
        :<|> crudServer (Proxy :: Proxy Features)
        :<|> listWorkers
+       :<|> callfun
 
 
 serverAuth :: Server UserAPI AppHandler
@@ -112,3 +117,19 @@ listWorkers = do
   -- wrks <- liftIO $ atomically (readTVar w)
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   return (WorkerMap $ Map.map _wProfile wrks)
+
+callfun
+  :: Server (QueryParam "worker-id" WorkerID
+             :> QueryParam "browser-id" BrowserID
+             :> ReqBody '[JSON] Job
+             :> Post '[JSON] JobID) AppHandler
+callfun (Just wID) bID job = do
+  wrks <- liftIO . atomically . readTVar =<< gets _workers
+  liftIO (print $ Map.map _wProfile wrks)
+  case Map.lookup wID wrks of
+    Nothing -> lift (liftIO (print "No match") >> pass)
+    Just w  -> do
+      jID  <- JobID <$> liftIO nextRandom
+      liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)
+      return jID
+

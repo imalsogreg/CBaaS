@@ -19,16 +19,18 @@ import qualified Data.UUID as UUID
 import Data.UUID.V4
 import GHC.Generics
 import qualified Network.WebSockets as WS
+import Servant.API
 import URI.ByteString
 
 import Job
 import Model
+import Browser
 
 data Worker = Worker
   { _wProfile :: WorkerProfile
   , _wID      :: WorkerID
   , _wConn    :: WS.Connection
-  , _wJobQueue :: TChan Job
+  , _wJobQueue :: TChan (JobID, Maybe BrowserID, Job)
   } deriving (Generic)
 
 
@@ -61,6 +63,9 @@ newtype WorkerID = WorkerID { unWorkerID :: UUID }
 instance ToJSON WorkerID where
   toJSON (WorkerID i) = A.String $ UUID.toText i
 
+instance FromText WorkerID where
+  fromText t = WorkerID <$> UUID.fromText t
+
 instance FromJSON WorkerID where
   parseJSON (A.String s) = case UUID.fromText s of
     Nothing -> mzero
@@ -75,22 +80,6 @@ instance ToJSON WorkerName where
 
 instance FromJSON WorkerName where
   parseJSON (A.String n) = return $ WorkerName n
-  parseJSON _ = mzero
-
-data JobResult = JobResult
-  { jrVal    :: Model.Val
-  , jrWorker :: WorkerID
-  } deriving (Eq, Show)
-
-instance ToJSON JobResult where
-  toJSON (JobResult v w) = A.object ["value"  .= v
-                                    ,"worker" .= w
-                                    ]
-
-instance FromJSON JobResult where
-  parseJSON (A.Object o) = JobResult
-    <$> o .: "value"
-    <*> o .: "worker"
   parseJSON _ = mzero
 
 

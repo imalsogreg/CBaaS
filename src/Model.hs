@@ -50,5 +50,4 @@ instance A.ToJSON Val where
   toJSON (VAny v) = v
 
 instance A.FromJSON Val where
-  parseJSON (A.Object v) = pure (VAny $ A.Object v)
-  parseJSON _            = mzero
+  parseJSON a = pure (VAny a)

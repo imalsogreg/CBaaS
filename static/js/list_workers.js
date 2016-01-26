@@ -1,6 +1,10 @@
+"use strict";
+
+// expose the websockets connection for debugging
 var w = undefined;
 
-var workers = {};
+var mybrowserid = undefined;
+var workers   = {};
 var functions = {};
 
 $('document').ready(function (){
@@ -25,6 +29,11 @@ $('document').ready(function (){
                 filter( functions[thisFunc].filter(function(i) {
                     return (i != msg.contents);
                 }));
+        } else if (msg.tag === "SetBrowserID") {
+            mybrowserid = msg.contents;
+        } else if (msg.tag == "JobFinished") {
+            console.log(msg.contents);
+            $('body').append("<br/>" + msg.contents[1].value);
         }
         console.log(workers);
         listWorkers();
@@ -40,9 +49,6 @@ function listWorkers(){
     while (workersList[0].firstChild){
         workersList[0].removeChild(workersList[0].firstChild);
     };
-    // cs.forEach(function (n) {
-    //     workersList.removeChild(n);
-    // });
     for (var k in workers) {
         if (workers.hasOwnProperty(k)) {
             makeItem(k, workers[k]);
