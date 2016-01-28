@@ -39,7 +39,7 @@ launchWebsocketServer :: Postgres
                    -> IO ()
 launchWebsocketServer pg workers browsers jobs results = do
   resultsChan <- newTChanIO
-  forkIO (fanoutResults resultsChan browsers)
+  _ <- forkIO (fanoutResults resultsChan browsers)
   WS.runServer "0.0.0.0" 9160 $ \pending -> do
     let uri = parseRelativeRef strictURIParserOptions (reqPath pending)
 
@@ -70,8 +70,6 @@ fanoutResults results browsers = forever $ do
     (wrk,br,res) <- readTChan results
     brs <- readTVar  browsers
     return (flip Map.lookup brs =<< br, res)
-  print "BrowserMatch:"
-  print (bID <$> browserMatch)
   case browserMatch of
     Nothing -> return ()
     Just b  -> WS.sendTextData (bConn b) (A.encode (JobFinished (jrJob res, res)))
@@ -79,6 +77,7 @@ fanoutResults results browsers = forever $ do
 data BrowserMessage = WorkerJoined WorkerID WorkerProfile
                     | WorkerLeft   WorkerID
                     | JobFinished  (JobID, JobResult)
+                    | JobStatusUpdate (JobID, JobResult)
                     | SetBrowserID BrowserID
   deriving (Eq, Generic)
 
@@ -86,6 +85,7 @@ instance A.ToJSON BrowserMessage where
 instance A.FromJSON BrowserMessage where
 
 data WorkerMessage = JobRequested   (JobID, Maybe BrowserID, Job)
+                   | WorkerStatusUpdate (JobID, Maybe BrowserID, JobResult)
                    | WorkerFinished (JobID, Maybe BrowserID, JobResult)
   deriving (Eq, Generic)
 
@@ -109,8 +109,7 @@ runBrowser pending browsers workers = do
     _ <- forkIO (process conn lastWorkers workers)
     listen conn res
   where
-    disconnect i = do
-      print "Browser disconnect"
+    disconnect i =
       atomically $ modifyTVar browsers (Map.delete i)
     process conn wsVar wsVar' = do
       (newWorkers, leftWorkers) <- atomically $ do
@@ -121,20 +120,17 @@ runBrowser pending browsers workers = do
         when (Map.null newWorkers && Map.null leftWorkers) retry
         writeTVar wsVar ws'
         return (newWorkers :: Map.Map WorkerID Worker, leftWorkers)
-      forM_ (Map.toList newWorkers) $ \(wi, w) -> do
-        print "SENDING NEW"
+      forM_ (Map.toList newWorkers) $ \(wi, w) ->
         WS.sendTextData conn (A.encode (WorkerJoined wi (_wProfile w)))
-      forM_ (Map.toList leftWorkers) $ \(wi, _) -> do
-        print "SENDING LEFT"
+      forM_ (Map.toList leftWorkers) $ \(wi, _) ->
         WS.sendTextData conn (A.encode (WorkerLeft wi))
       process conn wsVar wsVar'
     listen conn resultsChan = do
-      print "Listen"
       _ <- forkIO $ forever $ atomically (readTChan resultsChan) >>= \r ->
         WS.sendTextData conn (A.encode r)
       msg <- WS.receive conn
       case msg of
-        WS.ControlMessage (WS.Close n b) -> print "Browser disconnect"
+        WS.ControlMessage (WS.Close n b) -> print "Browser disconnect msg"
         x -> print x >> listen conn resultsChan
 
 
@@ -155,32 +151,20 @@ runWorker pending wp workers browsers resultsChan = do
   jobsChan <- atomically newTChan
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
-  flip finally (disconnect i) $ talk conn jobsChan resultsChan
---    (jId, brID, j) <- atomically (readTChan jobsChan)
-
-        -- _ <- forkIO $ forever $ do
-        --   (jID, brID, j) <- atomically $ readTChan jobsChan
-        --   WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
-        -- listen conn resultsChan
+  flip finally (disconnect i) $ talk conn jobsChan
   where
-    disconnect i = do
-        print "Disconnect"
-        atomically $ modifyTVar workers $ Map.delete i
+    disconnect i = atomically $ modifyTVar workers $ Map.delete i
 
-    talk :: WS.Connection -> TChan (JobID, Maybe BrowserID, Job)
-                          -> TChan (JobID, Maybe BrowserID, JobResult)
-                          -> IO ()
-    talk conn jobsChan resultsChan = do
+    talk :: WS.Connection -> TChan (JobID, Maybe BrowserID, Job) -> IO ()
+    talk conn jobsChan = do
       (jID, brID, j) <- atomically (readTChan jobsChan)
       WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
-      (jID', brID', jr) <- listenTillDone conn resultsChan
+      (jID', brID', jr) <- listenTillDone conn
       atomically (writeTChan resultsChan (jID', brID', jr))
-      talk conn jobsChan resultsChan
+      talk conn jobsChan
 
-    listenTillDone :: WS.Connection
-                   -> TChan (JobID, Maybe BrowserID, JobResult)
-                   -> IO (JobID, Maybe BrowserID, JobResult)
-    listenTillDone conn resultsChan = do
+    listenTillDone :: WS.Connection -> IO (JobID, Maybe BrowserID, JobResult)
+    listenTillDone conn = do
       msg <- WS.receive conn
       case msg of
         WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
@@ -189,31 +173,8 @@ runWorker pending wp workers browsers resultsChan = do
                 WS.Text c   -> c
                 WS.Binary c -> c
           case A.decode contents of
-            Just (WorkerFinished (_,b,r)) -> do
-              -- atomically (writeTChan resultsChan (jrJob r, b, r))
+            Just (WorkerFinished (_,b,r)) ->
               return (jrJob r, b, r)
-            -- Just (WorkerStatusUpdate) -> do -- TODO allow status updates
-            --   writeTVar theUpdate
-            --   listenTillDone conn resultsChan
-
-
-    listen :: WS.Connection -> TChan (JobID, Maybe BrowserID, JobResult) -> IO ()
-    listen conn resultsChan = do
-      print "Listen"
-      msg <- WS.receive conn
-      case msg of
-        WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
-        WS.DataMessage msg -> do
-          let m = case msg of
-                WS.Text   bs -> bs
-                WS.Binary bs -> bs
-          case A.decode m of
-            Just (WorkerFinished (_, b, r)) -> do
-              atomically (writeTChan resultsChan (jrJob r,b,r))
-            Nothing -> print "Error decoding result"
-          listen conn resultsChan
-
--- data WorkerMessage = JobRequested   (JobID, Maybe BrowserID, Job)
---                    | WorkerFinished (JobID, Maybe BrowserID, JobResult)
---   deriving (Eq, Generic)
-
+            Just (WorkerStatusUpdate (j,b,r)) -> do
+              atomically $ writeTChan resultsChan (j,b,r)
+              listenTillDone conn
