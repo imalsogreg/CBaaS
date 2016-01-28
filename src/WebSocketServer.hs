@@ -155,15 +155,48 @@ runWorker pending wp workers browsers resultsChan = do
   jobsChan <- atomically newTChan
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
-  flip finally (disconnect i) $ do
-        _ <- forkIO $ forever $ do
-          (jID, brID, j) <- atomically $ readTChan jobsChan
-          WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
-        listen conn resultsChan
+  flip finally (disconnect i) $ talk conn jobsChan resultsChan
+--    (jId, brID, j) <- atomically (readTChan jobsChan)
+
+        -- _ <- forkIO $ forever $ do
+        --   (jID, brID, j) <- atomically $ readTChan jobsChan
+        --   WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
+        -- listen conn resultsChan
   where
     disconnect i = do
         print "Disconnect"
         atomically $ modifyTVar workers $ Map.delete i
+
+    talk :: WS.Connection -> TChan (JobID, Maybe BrowserID, Job)
+                          -> TChan (JobID, Maybe BrowserID, JobResult)
+                          -> IO ()
+    talk conn jobsChan resultsChan = do
+      (jID, brID, j) <- atomically (readTChan jobsChan)
+      WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
+      (jID', brID', jr) <- listenTillDone conn resultsChan
+      atomically (writeTChan resultsChan (jID', brID', jr))
+      talk conn jobsChan resultsChan
+
+    listenTillDone :: WS.Connection
+                   -> TChan (JobID, Maybe BrowserID, JobResult)
+                   -> IO (JobID, Maybe BrowserID, JobResult)
+    listenTillDone conn resultsChan = do
+      msg <- WS.receive conn
+      case msg of
+        WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
+        WS.DataMessage m -> do
+          let contents = case m of
+                WS.Text c   -> c
+                WS.Binary c -> c
+          case A.decode contents of
+            Just (WorkerFinished (_,b,r)) -> do
+              -- atomically (writeTChan resultsChan (jrJob r, b, r))
+              return (jrJob r, b, r)
+            -- Just (WorkerStatusUpdate) -> do -- TODO allow status updates
+            --   writeTVar theUpdate
+            --   listenTillDone conn resultsChan
+
+
     listen :: WS.Connection -> TChan (JobID, Maybe BrowserID, JobResult) -> IO ()
     listen conn resultsChan = do
       print "Listen"
@@ -176,8 +209,6 @@ runWorker pending wp workers browsers resultsChan = do
                 WS.Binary bs -> bs
           case A.decode m of
             Just (WorkerFinished (_, b, r)) -> do
-              --brws <- readTVarIO browsers
-              --case Map.lookup (_jrJob $ Browser jr) brws of
               atomically (writeTChan resultsChan (jrJob r,b,r))
             Nothing -> print "Error decoding result"
           listen conn resultsChan
