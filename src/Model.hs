@@ -1,12 +1,23 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Model where
 
+import Control.Applicative ((<|>))
 import Control.Monad (mzero)
+import Data.ByteString
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Base64 as B64
 import Data.Text
-import GHC.TypeLits
+import qualified Data.Text.Lazy as TL
+import Data.Text.Encoding
 import qualified Data.Aeson as A
+import qualified Data.Vector as V
+import GHC.TypeLits
+import Codec.Picture
 
 -- -- Singleton types
 -- data STy ty where
@@ -43,11 +54,67 @@ instance A.FromJSON Expr where
   parseJSON (A.Object v) = pure (Expr $ A.Object v)
   parseJSON _            = mzero
 
-data Val = VAny A.Value
-  deriving (Eq, Show)
+data Val = VAny    A.Value
+         | VDouble Double
+         | VText   Text
+         | VList   [Val]
+         | VProbabilityDistribution [(Double,Val)]
+         | VVec1   (V.Vector Double)
+         | VVec2   (V.Vector (Double, Double))
+         | VVec3   (V.Vector (Double, Double, Double))
+         | VMat2   (V.Vector (V.Vector Double))
+         | VMat2C  (V.Vector (V.Vector Double),
+                    V.Vector (V.Vector Double),
+                    V.Vector (V.Vector Double))
+         | VImage  ModelImage
+         | VClosure [(Text,Val)] Expr
+         deriving (Eq, Show)
+
 
 instance A.ToJSON Val where
+  toJSON (VImage (ModelImage dynImg)) =
+    let bytes = case encodeDynamicBitmap dynImg of
+          Left e -> "Encoding Error"
+          Right b -> decodeUtf8 (BL.toStrict b)
+    in A.object ["tag" A..= ("VImage" :: Text)
+                ,"contents" A..= bytes]
+  toJSON (VDouble d) = A.object ["tag" A..= ("VDouble" :: Text)
+                                ,"contents" A..= d]
+  toJSON (VText t) = A.object ["tag" A..= ("VText" :: Text)
+                              ,"contents" A..= t]
+  toJSON (VMat2 m) = A.object ["tag" A..= ("VMat2" :: Text)
+                              ,"contents" A..= m]
+  toJSON (VMat2C (r,g,b)) = A.object ["tag" A..= ("VMat2C" :: Text)
+                                     ,"contents" A..= (r,g,b)]
   toJSON (VAny v) = v
 
 instance A.FromJSON Val where
-  parseJSON a = pure (VAny a)
+  parseJSON (A.Object o) = (do
+    tag :: String <- o A..: "tag"
+    contents      <- o A..: "contents"
+    case tag of
+      "VImage" -> case decodeModelImage contents of
+        Left _    -> mzero
+        Right img -> return (VImage img)
+      "VDouble" -> VDouble <$> A.parseJSON contents
+      "VText"   -> VText   <$> A.parseJSON contents
+      "VMat2"   -> VMat2   <$> A.parseJSON contents
+      "VMat2C"  -> VMat2C  <$> A.parseJSON contents
+    ) <|> pure (VAny (A.Object o))
+
+newtype ModelImage = ModelImage DynamicImage
+
+instance Eq ModelImage where
+  a == b =
+    encodeModelImage a == encodeModelImage b
+
+instance Show ModelImage where
+  show _ = "<CBaaSModelImage>"
+
+encodeModelImage :: ModelImage -> Either String A.Value
+encodeModelImage (ModelImage img) =
+  (A.String . decodeUtf8 . B64.encode . BL.toStrict) <$> encodeDynamicBitmap img
+
+decodeModelImage :: A.Value -> Either String ModelImage
+decodeModelImage (A.String (s :: Text)) =
+  fmap ModelImage $ decodeImage =<< B64.decode (encodeUtf8 s)

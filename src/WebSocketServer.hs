@@ -79,7 +79,7 @@ data BrowserMessage = WorkerJoined WorkerID WorkerProfile
                     | JobFinished  (JobID, JobResult)
                     | JobStatusUpdate (JobID, JobResult)
                     | SetBrowserID BrowserID
-  deriving (Eq, Generic)
+  deriving (Eq, Show, Generic)
 
 instance A.ToJSON BrowserMessage where
 instance A.FromJSON BrowserMessage where
@@ -87,7 +87,7 @@ instance A.FromJSON BrowserMessage where
 data WorkerMessage = JobRequested   (JobID, Maybe BrowserID, Job)
                    | WorkerStatusUpdate (JobID, Maybe BrowserID, JobResult)
                    | WorkerFinished (JobID, Maybe BrowserID, JobResult)
-  deriving (Eq, Generic)
+  deriving (Eq, Show, Generic)
 
 instance A.ToJSON WorkerMessage
 instance A.FromJSON WorkerMessage
