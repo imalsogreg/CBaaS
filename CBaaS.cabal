@@ -128,6 +128,7 @@ test-suite spec
   build-depends: base == 4.*, 
                  basic-sop >= 0.2 && < 0.3,
                  CBaaS,
+                 generics-sop,
                  hspec >= 2.2 && < 2.3, 
                  hspec-snap >= 1.0 && < 1.1,
                  JuicyPixels,
