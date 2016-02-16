@@ -10,11 +10,8 @@ var functions = {};
 $('document').ready(function (){
     w = new WebSocket('ws://localhost:9160/browser');
     w.onmessage = function (m) {
-        console.log(m.data);
         var msg = JSON.parse(m.data);
-        // console.log(msg);
         var thisFunc = msg.contents[1].function;
-        console.log(thisFunc);
         if (msg.tag == "WorkerJoined") {
             workers[msg.contents[0]] = msg.contents[1];
             if(functions[thisFunc]) {
@@ -26,16 +23,16 @@ $('document').ready(function (){
             thisFunc = workers[msg.contents].function;
             delete workers[msg.contents];
             functions[thisFunc] =
-                filter( functions[thisFunc].filter(function(i) {
+                 functions[thisFunc].filter(function(i) {
                     return (i != msg.contents);
-                }));
+                });
         } else if (msg.tag === "SetBrowserID") {
             mybrowserid = msg.contents;
         } else if (msg.tag == "JobFinished") {
+            console.log('JobFinished');
             console.log(msg.contents);
-            $('body').append("<br/>" + msg.contents[1].value);
+            $('body').append("<br/>" + msg.contents[1].value.contents);
         }
-        console.log(workers);
         listWorkers();
     };
 

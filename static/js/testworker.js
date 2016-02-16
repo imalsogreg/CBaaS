@@ -17,9 +17,10 @@ function wswork() {
         console.log(req);
         var jobid = req.contents[0];
         var browserid = req.contents[1];
-        var res = reverse(req.contents[2].arg);
+        var res = {'tag':'VText', 'contents': reverse(req.contents[2].arg)};
         var resMsg = {tag:'WorkerFinished', contents:[jobid,browserid,{job:jobid, value:res}]};
         w.send(JSON.stringify(resMsg));
-        console.log('Sent response');
+        console.log('Sent response: ');
+        console.log(resMsg);
     };
 };

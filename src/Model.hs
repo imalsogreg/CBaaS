@@ -19,6 +19,12 @@ import qualified Data.Vector as V
 import GHC.TypeLits
 import Codec.Picture
 
+class ToVal a where
+  toVal :: a -> Val
+
+class FromVal a where
+  fromVal :: Val -> a
+
 -- -- Singleton types
 -- data STy ty where
 --   SInt    :: STy Int
@@ -58,7 +64,7 @@ data Val = VAny    A.Value
          | VDouble Double
          | VText   Text
          | VList   [Val]
-         | VProbabilityDistribution [(Double,Val)]
+         | VProbabilityDistribution [(Val,Double)]
          | VVec1   (V.Vector Double)
          | VVec2   (V.Vector (Double, Double))
          | VVec3   (V.Vector (Double, Double, Double))
@@ -73,9 +79,9 @@ data Val = VAny    A.Value
 
 instance A.ToJSON Val where
   toJSON (VImage (ModelImage dynImg)) =
-    let bytes = case encodeDynamicBitmap dynImg of
+    let bytes = case encodeModelImage (ModelImage dynImg) of
           Left e -> "Encoding Error"
-          Right b -> decodeUtf8 (BL.toStrict b)
+          Right b -> b
     in A.object ["tag" A..= ("VImage" :: Text)
                 ,"contents" A..= bytes]
   toJSON (VDouble d) = A.object ["tag" A..= ("VDouble" :: Text)
@@ -100,7 +106,9 @@ instance A.FromJSON Val where
       "VText"   -> VText   <$> A.parseJSON contents
       "VMat2"   -> VMat2   <$> A.parseJSON contents
       "VMat2C"  -> VMat2C  <$> A.parseJSON contents
-    ) <|> pure (VAny (A.Object o))
+      "VAny"    -> return $ VAny contents
+    ) -- <|> pure (VAny (A.Object o))
+  -- parseJSON a = return $ VAny a
 
 newtype ModelImage = ModelImage DynamicImage
 
@@ -113,8 +121,35 @@ instance Show ModelImage where
 
 encodeModelImage :: ModelImage -> Either String A.Value
 encodeModelImage (ModelImage img) =
-  (A.String . decodeUtf8 . B64.encode . BL.toStrict) <$> encodeDynamicBitmap img
+  (A.String . decodeUtf8 . B64.encode . BL.toStrict) <$> encodeDynamicPng img
 
 decodeModelImage :: A.Value -> Either String ModelImage
 decodeModelImage (A.String (s :: Text)) =
   fmap ModelImage $ decodeImage =<< B64.decode (encodeUtf8 s)
+
+
+instance Model.ToVal Int where
+  toVal i = Model.VDouble (realToFrac i)
+
+instance Model.ToVal Double where
+  toVal = VDouble
+
+instance Model.ToVal a => Model.ToVal [a] where
+  toVal i = Model.VList $ Prelude.map toVal i
+
+instance Model.ToVal Text where
+  toVal = VText
+
+
+instance Model.FromVal Double where
+  fromVal (VDouble t) = t
+  fromVal e = error $ "Couldn't cast to double: " ++ show e
+
+instance Model.FromVal Text where
+  fromVal (VText t) = t
+  fromVal e = error $ "Couldn't cast to text: " ++ show e
+
+instance Model.FromVal DynamicImage where
+  fromVal (Model.VImage (Model.ModelImage i)) = i
+  fromVal x = error $ "Couldn't cast to image: " ++ show x
+

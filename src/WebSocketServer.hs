@@ -81,8 +81,8 @@ data BrowserMessage = WorkerJoined WorkerID WorkerProfile
                     | SetBrowserID BrowserID
   deriving (Eq, Show, Generic)
 
-instance A.ToJSON BrowserMessage where
-instance A.FromJSON BrowserMessage where
+instance A.ToJSON BrowserMessage
+instance A.FromJSON BrowserMessage
 
 data WorkerMessage = JobRequested   (JobID, Maybe BrowserID, Job)
                    | WorkerStatusUpdate (JobID, Maybe BrowserID, JobResult)
@@ -159,7 +159,9 @@ runWorker pending wp workers browsers resultsChan = do
     talk conn jobsChan = do
       (jID, brID, j) <- atomically (readTChan jobsChan)
       WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
+      print "listenTillDone"
       (jID', brID', jr) <- listenTillDone conn
+      print "WriteTChan after listening"
       atomically (writeTChan resultsChan (jID', brID', jr))
       talk conn jobsChan
 

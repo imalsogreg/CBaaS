@@ -29,7 +29,25 @@
     </table>
   </div>
 
-  <script src="http://cdnjs.cloudflare.com/ajax/libs/bacon.js/0.7.73/Bacon.js"></script>
+  <h2>Picture</h2>
+  <div class="pic-requests">
+    <input type="text" class="form-control"
+           placeholder="pixels" id="pic-fun-name"/>
+    <input type="text" class="form-control" id="pic-fun-arg"
+           onkeyup="updatePicLoaded()"
+           placeholder="img.jpg"/>
+    <button class="btn btn-default" type="button" id="pic-go"
+            onclick="callPicFun()">
+      Send Pic
+    </button>
+  </div>
+
+  <h4>Img</h4>
+  <img id="tmpimg"/>
+
+  <h4>Canvas</h4>
+  <canvas id="imgcanvas"></canvas>
+
   <script src="js/job_requester.js"></script>
   <script src="js/list_workers.js"></script>
 

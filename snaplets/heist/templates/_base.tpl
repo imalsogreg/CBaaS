@@ -9,9 +9,9 @@
     <title><pageTitle/></title>
 
     <staticscripts/>
-    <script src="http://code.jquery.com/jquery-2.2.0.min.js"></script>
+    <script src="js/jquery-2.2.0.min.js"></script>
     <!-- Bootstrap core CSS -->
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
 
     <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media
 queries -->
@@ -28,6 +28,6 @@ queries -->
     <!-- Bootstrap core JavaScript
     ================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->
-    <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
   </body>
 </html>
