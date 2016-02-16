@@ -4,10 +4,10 @@
 module ClientGen.JS where
 
 import Data.Proxy
-import Servant
+import Data.Text
 import Servant.JS
 
 import API
 
-jsCode :: String
+jsCode :: Text
 jsCode = jsForAPI (Proxy :: Proxy API1) vanillaJS

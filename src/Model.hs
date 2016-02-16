@@ -1,5 +1,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -16,6 +17,7 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Encoding
 import qualified Data.Aeson as A
 import qualified Data.Vector as V
+import GHC.Generics
 import GHC.TypeLits
 import Codec.Picture
 
@@ -74,7 +76,7 @@ data Val = VAny    A.Value
                     V.Vector (V.Vector Double))
          | VImage  ModelImage
          | VClosure [(Text,Val)] Expr
-         deriving (Eq, Show)
+         deriving (Eq, Show, Generic)
 
 
 instance A.ToJSON Val where

@@ -13,6 +13,7 @@ import           Database.PostgreSQL.Simple.FromField
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToRow
 import           Servant.API
+import           Web.HttpApiData
 
 ------------------------------------------------------------------------------
 -- | A type wrapper for Entity ID tags. We wrap the UUID in our own type
@@ -45,8 +46,11 @@ instance ToField EntityID where
 instance FromField EntityID where
   fromField a b = EntityID <$> fromField a b
 
-instance FromText EntityID where
-  fromText t = EntityID <$> UUID.fromText t
+instance FromHttpApiData EntityID where
+  parseUrlPiece t = EntityID <$> note "Bad UUID decode" (UUID.fromText t)
+
+instance ToHttpApiData EntityID where
+  toUrlPiece (EntityID u) = UUID.toText u
 
 instance FromFormUrlEncoded EntityID where
   fromFormUrlEncoded [("id", t)] =
@@ -61,3 +65,6 @@ instance ToRow EntityID where
 instance FromRow EntityID where
   fromRow = field
 
+note :: e -> Maybe a -> Either e a
+note e Nothing  = Left e
+note _ (Just a) = Right a

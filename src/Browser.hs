@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Browser where
 
 
@@ -11,6 +13,7 @@ import Data.UUID
 import Data.UUID.V4
 import qualified Network.WebSockets as WS
 import qualified Servant.API as Servant
+import Web.HttpApiData
 
 -- import Worker
 import Job
@@ -35,5 +38,14 @@ instance A.FromJSON BrowserID where
     Just u  -> return $ BrowserID u
   parseJSON _            = mzero
 
-instance Servant.FromText BrowserID where
-  fromText s = BrowserID <$> fromText s
+instance FromHttpApiData BrowserID where
+  parseUrlPiece s = BrowserID <$> Browser.note "Bad UUID parse" (fromText s)
+
+instance ToHttpApiData BrowserID where
+  toUrlPiece (BrowserID u) = toText u
+
+note :: e -> Maybe a -> Either e a
+note e Nothing  = Left e
+note _ (Just a) = Right a
+
+

@@ -12,6 +12,7 @@ import qualified Data.Aeson as A
 import Data.Text
 import Data.UUID
 import qualified Data.UUID as UUID
+import Web.HttpApiData
 
 import Model
 
@@ -25,8 +26,14 @@ instance FromJSON JobID where
   parseJSON (String s) = maybe mzero (return . JobID) (UUID.fromText s)
   parseJSON _          = mzero
 
-instance FromText JobID where
-  fromText t = JobID <$> UUID.fromText t
+instance FromHttpApiData JobID where
+  parseUrlPiece t = JobID <$> note "Bad UUID decode" (UUID.fromText t)
+note :: e -> Maybe a -> Either e a
+note e Nothing  = Left e
+note _ (Just a) = Right a
+
+instance ToHttpApiData JobID where
+  toUrlPiece (JobID u) = UUID.toText u
 
 makeLenses ''JobID
 

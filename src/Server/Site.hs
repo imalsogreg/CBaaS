@@ -21,7 +21,7 @@ import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
-import           Servant.API
+import           Servant.API hiding (GET, POST, PUT, DELETE)
 import           Servant.Server
 import           Servant.Server.Internal.SnapShims (applicationToSnap)
 import           Snap.Core

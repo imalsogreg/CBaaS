@@ -50,19 +50,19 @@ serverAPI = serverAuth
 
 serverAuth :: Server UserAPI AppHandler
 serverAuth =
-  let loginServer li = lift $ with auth $ do
+  let loginServer li = with auth $ do
         u <- loginByUsername (_liUsername li)
                              (ClearText . encodeUtf8 $ _liPassword li)
                              (_liRemember li)
         either (error "login error") return u
 
-      registerServer ri = lift $ with auth $ do
+      registerServer ri = with auth $ do
         u <- createUser (_riUsername ri) (encodeUtf8 (_riPassword ri))
         either (error "Registration error") return u
 
-      currentUserServer = lift $ with auth currentUser
+      currentUserServer = with auth currentUser
 
-      logoutServer = lift $ with auth logout
+      logoutServer = with auth logout
 
   in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
 
@@ -83,27 +83,27 @@ instance Crud Features where
 
 crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI EntityID v) AppHandler
 crudServer p =
-  let getAll   = lift (query_ (getAllQuery p))
+  let getAll   = query_ (getAllQuery p)
 
-      get i    = lift $ do
+      get i    = do
         rs <- query (getOneQuery p) (Only i)
         case rs of
           [r] -> return r
           _        -> error "Get failure"
 
-      post v   = lift $ do
+      post v   = do
         rs <- query (postQuery p) v
         case rs of
           [Only r] -> return r
           _   -> error "Post failure"
 
-      put i v  = lift $ do
+      put i v  = do
         rs <- query (putQuery p) (i :. v)
         case rs of
           [Only b] -> return b
           _        -> error "Put error"
 
-      delete i = lift $ do
+      delete i = do
         n <- query (deleteQuery p) (Only i)
         case n of
           [Only (1 :: Int)] -> return True
@@ -113,8 +113,6 @@ crudServer p =
 
 listWorkers :: Server (Get '[JSON] WorkerMap) AppHandler
 listWorkers = do
-  -- w <- gets _workers
-  -- wrks <- liftIO $ atomically (readTVar w)
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   return (WorkerMap $ Map.map _wProfile wrks)
 
@@ -127,7 +125,7 @@ callfun (Just wID) bID job = do
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   liftIO (print $ Map.map _wProfile wrks)
   case Map.lookup wID wrks of
-    Nothing -> lift (liftIO (print "No match") >> pass)
+    Nothing -> liftIO (print "No match") >> pass
     Just w  -> do
       jID  <- JobID <$> liftIO nextRandom
       liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)

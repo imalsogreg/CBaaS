@@ -21,6 +21,7 @@ import GHC.Generics
 import qualified Network.WebSockets as WS
 import Servant.API
 import URI.ByteString
+import Web.HttpApiData
 
 import Job
 import Model
@@ -63,8 +64,12 @@ newtype WorkerID = WorkerID { unWorkerID :: UUID }
 instance ToJSON WorkerID where
   toJSON (WorkerID i) = A.String $ UUID.toText i
 
-instance FromText WorkerID where
-  fromText t = WorkerID <$> UUID.fromText t
+instance FromHttpApiData WorkerID where
+  parseUrlPiece t = WorkerID <$>
+    Worker.note "Bad UUID parse" (UUID.fromText t)
+
+instance ToHttpApiData WorkerID where
+  toUrlPiece (WorkerID u) = UUID.toText u
 
 instance FromJSON WorkerID where
   parseJSON (A.String s) = case UUID.fromText s of
@@ -85,14 +90,14 @@ instance FromJSON WorkerName where
 
 parseWorkerProfile :: Query -> Either String WorkerProfile
 parseWorkerProfile q = do
-  nm <- note "No WorkerProfile name"     $ lookup "name" ps
-  fn <- note "No WorkerProfile function" $ lookup "function" ps
+  nm <- Worker.note "No WorkerProfile name"     $ lookup "name" ps
+  fn <- Worker.note "No WorkerProfile function" $ lookup "function" ps
   return $ WorkerProfile (WorkerName $ decodeUtf8 nm)
            (decodeUtf8 fn)
            (map decodeUtf8 . map snd . filter ((== "tag") . fst) $ ps)
   where ps = queryPairs q
 
 
-note :: String -> Maybe a -> Either String a
+note :: e -> Maybe a -> Either e a
 note err Nothing  = Left err
 note _   (Just a) = Right a
