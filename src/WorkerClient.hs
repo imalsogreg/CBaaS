@@ -7,6 +7,7 @@ import           Codec.Picture
 import qualified Network.WebSockets as WS
 import qualified Model as Model
 import           Job
+import           Message
 import           WebSocketServer
 import Options.Applicative
 

@@ -23,6 +23,7 @@ import qualified Network.WebSockets as WS
 import URI.ByteString
 
 import Job
+import Message
 import qualified Model as Model
 import Worker
 import Browser
@@ -73,24 +74,6 @@ fanoutResults results browsers = forever $ do
   case browserMatch of
     Nothing -> return ()
     Just b  -> WS.sendTextData (bConn b) (A.encode (JobFinished (jrJob res, res)))
-
-data BrowserMessage = WorkerJoined WorkerID WorkerProfile
-                    | WorkerLeft   WorkerID
-                    | JobFinished  (JobID, JobResult)
-                    | JobStatusUpdate (JobID, JobResult)
-                    | SetBrowserID BrowserID
-  deriving (Eq, Show, Generic)
-
-instance A.ToJSON BrowserMessage
-instance A.FromJSON BrowserMessage
-
-data WorkerMessage = JobRequested   (JobID, Maybe BrowserID, Job)
-                   | WorkerStatusUpdate (JobID, Maybe BrowserID, JobResult)
-                   | WorkerFinished (JobID, Maybe BrowserID, JobResult)
-  deriving (Eq, Show, Generic)
-
-instance A.ToJSON WorkerMessage
-instance A.FromJSON WorkerMessage
 
 runBrowser :: WS.PendingConnection
            -> TVar (Map.Map BrowserID Browser)
