@@ -64,7 +64,6 @@ library
                        Message
                        Permissions
                        User
-                       Types
                        Server.Application
                        Server.Site
                        Server.APIServer

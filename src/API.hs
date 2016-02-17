@@ -20,7 +20,6 @@ import           EntityID
 import           Permissions
 import           Worker
 import           User
-import           Types
 import           Browser
 import           Job
 
@@ -32,8 +31,6 @@ import           Job
 --   For more information about API specifications, see the Servant
 --   <http://haskell-servant.github.io documentation>
 type API1 = "user"        :> UserAPI
-  :<|> "stimulusresource" :> CrudAPI EntityID StimulusResource
-  :<|> "feature"          :> CrudAPI EntityID Features
   :<|> "worker"           :> Get '[JSON] WorkerMap
   :<|> "callfun" :> QueryParam "worker-id" WorkerID
                  :> QueryParam "browser-id" BrowserID

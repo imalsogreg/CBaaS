@@ -32,7 +32,6 @@ import EntityID
 import Worker
 import Permissions
 import User
-import Types
 import Server.Application
 import Server.Crud
 import Browser
@@ -42,8 +41,6 @@ import Job
 -- | Top-level API server implementation
 serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
-       :<|> crudServer (Proxy :: Proxy StimulusResource)
-       :<|> crudServer (Proxy :: Proxy Features)
        :<|> listWorkers
        :<|> callfun
 
@@ -65,20 +62,6 @@ serverAuth =
       logoutServer = with auth logout
 
   in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
-
-
-instance Crud StimulusResource where
-  tableName   _ = "stimulusresource"
-  tableRows _ = [RowDescription "meta"  "json" ""
-                ,RowDescription "value" "json" ""
-                ]
-
-
-instance Crud Features where
-  tableName _ = "features"
-  tableRows _ = [RowDescription "meta" "json" ""
-                ,RowDescription "value" "json" ""
-                ]
 
 
 crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI EntityID v) AppHandler
