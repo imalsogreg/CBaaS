@@ -30,8 +30,6 @@ spec = do
       it "val should round-trip aeson" $  property $ \(v :: Val) ->
         A.decode (A.encode v) == Just v
 
-instance Arbitrary PrimVal where
-  arbitrary = garbitrary
 
 instance Arbitrary Val where
   arbitrary = sized arbVal
