@@ -61,6 +61,7 @@ library
                        APIDocs
                        Combo
                        EntityID
+                       RemoteFunction
                        Message
                        Permissions
                        User

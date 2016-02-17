@@ -64,7 +64,7 @@ serverAuth =
   in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
 
 
-crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI EntityID v) AppHandler
+crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI (EntityID v) v) AppHandler
 crudServer p =
   let getAll   = query_ (getAllQuery p)
 

@@ -8,10 +8,12 @@ import Data.Text
 import GHC.Generics
 import Servant.API
 
--- data User = User
---   { _uLogin :: Int
---   , _uEmail :: Text
---   } deriving (Show, Eq, Generic)
+data User = User
+--  { _uLogin :: Int
+--  , _uEmail :: Text
+--  } deriving (Show, Eq, Generic)
+
+data Group = Group
 
 data LoginInfo = LoginInfo
   { _liUsername :: Text
