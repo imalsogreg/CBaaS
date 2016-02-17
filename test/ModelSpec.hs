@@ -25,10 +25,8 @@ import Model
 
 spec = do
   describe "Encoding and decoding"
-    $ modifyMaxSize (const 3)
-    $ modifyMaxSuccess (const 10) $ do
-      it "primval should round-trip aeson" $ property $ \(pv :: PrimVal) ->
-        A.decode (A.encode pv) == Just pv
+    $ modifyMaxSize (const 10)
+    $ modifyMaxSuccess (const 50) $ do
       it "val should round-trip aeson" $  property $ \(v :: Val) ->
         A.decode (A.encode v) == Just v
 
@@ -36,7 +34,29 @@ instance Arbitrary PrimVal where
   arbitrary = garbitrary
 
 instance Arbitrary Val where
-  arbitrary = garbitrary
+  arbitrary = sized arbVal
+
+arbVal :: Int -> Gen Val
+arbVal 0 = oneof [ VDouble  <$> arbitrary
+                 , VComplex <$> arbitrary
+                 , VText    <$> arbitrary
+                 , VImage   <$> arbitrary
+                 ]
+arbVal n = do
+  (Positive m) <- arbitrary
+  let n' = n `div` (m + 1)
+  oneof [ (VList . V.toList) <$> V.replicateM n (arbVal n')
+        , VVec1 <$> V.replicateM n' (arbVal m)
+        , fmap VVec2 $ do
+           x <- (V.replicateM (div n 4) (arbVal (n `div` 4)))
+           y <- (V.replicateM (div n 4) (arbVal (n `div` 4)))
+           return (V.zip x y)
+        , fmap (VVec3 . V.fromList) $ do
+           x <- (vectorOf (div n 2) (arbVal (div n 2)))
+           y <- (vectorOf (div n 2) (arbVal (div n 2)))
+           z <- (vectorOf (div n 2) (arbVal (div n 2)))
+           return (zip3 x y z)
+        ]
 
 instance Arbitrary PrimComplex where
   arbitrary = fmap PComplex $ liftA2 (:+) arbitrary arbitrary

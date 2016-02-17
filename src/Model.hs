@@ -72,16 +72,19 @@ instance A.FromJSON Expr where
 
 data Val = -- VAny    A.Value
         --  |
-           VPrim PrimVal
-         | VList   [PrimVal]
+           VDouble Double
+         | VComplex PrimComplex
+         | VText Text
+         | VImage ModelImage
+         | VList   [Val]
          -- | VProbabilityDistribution [(Val,Double)]
-         | VVec1   (V.Vector PrimVal)
-         | VVec2   (V.Vector (PrimVal, PrimVal))
-         | VVec3   (V.Vector (PrimVal, PrimVal, PrimVal))
-         | VMat2   (V.Vector (V.Vector PrimVal))
-         | VMat2C  (V.Vector (V.Vector PrimVal),
-                    V.Vector (V.Vector PrimVal),
-                    V.Vector (V.Vector PrimVal))
+         | VVec1   (V.Vector Val)
+         | VVec2   (V.Vector (Val, Val))
+         | VVec3   (V.Vector (Val, Val, Val))
+         | VMat2   (V.Vector (V.Vector Val))
+         | VMat2C  (V.Vector (V.Vector Val),
+                    V.Vector (V.Vector Val),
+                    V.Vector (V.Vector Val))
          -- | VClosure [(Text,Expr)] Expr
          deriving (Eq, Show, GHC.Generics.Generic)
 
