@@ -9,10 +9,11 @@ import Database.PostgreSQL.Simple.ToField
 import Database.PostgreSQL.Simple.FromField
 import GHC.Generics
 import EntityID
+import User
 
 data Ownership = Ownership
-  { _permOwner      :: EntityID
-  , _permGroup      :: EntityID
+  { _permOwner      :: EntityID User
+  , _permGroup      :: EntityID Group
   , _permOwnerRead  :: Bool
   , _permOwnerWrite :: Bool
   , _permGroupRead  :: Bool

@@ -13,29 +13,11 @@ import Data.Text
 import Data.UUID
 import qualified Data.UUID as UUID
 import Web.HttpApiData
+import EntityID
 
 import Model
 
-newtype JobID = JobID { _unJobID :: UUID }
-  deriving (Eq, Show, Ord)
-
-instance ToJSON JobID where
-  toJSON (JobID uu) = String $ UUID.toText uu
-
-instance FromJSON JobID where
-  parseJSON (String s) = maybe mzero (return . JobID) (UUID.fromText s)
-  parseJSON _          = mzero
-
-instance FromHttpApiData JobID where
-  parseUrlPiece t = JobID <$> note "Bad UUID decode" (UUID.fromText t)
-note :: e -> Maybe a -> Either e a
-note e Nothing  = Left e
-note _ (Just a) = Right a
-
-instance ToHttpApiData JobID where
-  toUrlPiece (JobID u) = UUID.toText u
-
-makeLenses ''JobID
+type JobMap = EntityMap Job
 
 data Job = Job
   { -- _jID      :: JobID
@@ -60,7 +42,7 @@ instance FromJSON Job where
 data JobResult = JobResult
   { jrVal    :: Model.Val
   -- , jrWorker :: WorkerID
-  , jrJob    :: JobID
+  , jrJob    :: EntityID Job
   } deriving (Eq, Show)
 
 instance ToJSON JobResult where

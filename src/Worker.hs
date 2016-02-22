@@ -23,22 +23,21 @@ import Servant.API
 import URI.ByteString
 import Web.HttpApiData
 
+import EntityID
 import Job
 import Model
 import Browser
 
 data Worker = Worker
   { _wProfile :: WorkerProfile
-  , _wID      :: WorkerID
+  , _wID      :: EntityID WorkerProfile
   , _wConn    :: WS.Connection
-  , _wJobQueue :: TChan (JobID, Maybe BrowserID, Job)
+  , _wJobQueue :: TChan (EntityID Job, Maybe (EntityID Browser), Job)
   } deriving (Generic)
 
 
-newtype WorkerMap = WorkerMap (Map.Map WorkerID WorkerProfile)
+type WorkerProfileMap = EntityMap WorkerProfile
 
-instance ToJSON WorkerMap where
-  toJSON (WorkerMap w) = toJSON $ Map.mapKeys (UUID.toText . unWorkerID) w
 
 data WorkerProfile = WorkerProfile
   { wpName         :: WorkerName
@@ -58,25 +57,6 @@ instance FromJSON WorkerProfile where
     <*> o .: "function"
     <*> o .: "tags"
 
-newtype WorkerID = WorkerID { unWorkerID :: UUID }
-  deriving (Eq, Ord, Show)
-
-instance ToJSON WorkerID where
-  toJSON (WorkerID i) = A.String $ UUID.toText i
-
-instance FromHttpApiData WorkerID where
-  parseUrlPiece t = WorkerID <$>
-    Worker.note "Bad UUID parse" (UUID.fromText t)
-
-instance ToHttpApiData WorkerID where
-  toUrlPiece (WorkerID u) = UUID.toText u
-
-instance FromJSON WorkerID where
-  parseJSON (A.String s) = case UUID.fromText s of
-    Nothing -> mzero
-    Just i  -> return $ WorkerID i
-  parseJSON _ = mzero
-
 newtype WorkerName = WorkerName { unWN :: Text }
   deriving (Eq, Ord, Show, Generic)
 
@@ -88,16 +68,12 @@ instance FromJSON WorkerName where
   parseJSON _ = mzero
 
 
+
 parseWorkerProfile :: Query -> Either String WorkerProfile
 parseWorkerProfile q = do
-  nm <- Worker.note "No WorkerProfile name"     $ lookup "name" ps
-  fn <- Worker.note "No WorkerProfile function" $ lookup "function" ps
+  nm <- note "No WorkerProfile name"     $ lookup "name" ps
+  fn <- note "No WorkerProfile function" $ lookup "function" ps
   return $ WorkerProfile (WorkerName $ decodeUtf8 nm)
            (decodeUtf8 fn)
            (map decodeUtf8 . map snd . filter ((== "tag") . fst) $ ps)
   where ps = queryPairs q
-
-
-note :: e -> Maybe a -> Either e a
-note err Nothing  = Left err
-note _   (Just a) = Right a

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module WebSocketServer where
@@ -22,6 +23,7 @@ import System.IO
 import qualified Network.WebSockets as WS
 import URI.ByteString
 
+import EntityID
 import Job
 import Message
 import qualified Model as Model
@@ -30,12 +32,12 @@ import Browser
 
 launchWebsocketServer :: Postgres
                    -- ^ SQL connection
-                   -> TVar (Map WorkerID Worker)
+                   -> TVar (Map.Map (EntityID WorkerProfile) Worker)
                    -- ^ All registered workers
-                   -> TVar (Map BrowserID Browser)
-                   -> TChan (WorkerID, JobID, Model.Val)
+                   -> TVar BrowserMap
+                   -> TChan (EntityID Worker, EntityID Job, Model.Val)
                    -- ^ Read-end of a work queue
-                   -> TChan (WorkerID, JobID, Model.Val)
+                   -> TChan (EntityID Worker, EntityID Job, Model.Val)
                    -- ^ Read-end of a job completion queue
                    -> IO ()
 launchWebsocketServer pg workers browsers jobs results = do
@@ -65,35 +67,42 @@ launchWebsocketServer pg workers browsers jobs results = do
 
   where reqPath = WS.requestPath . WS.pendingRequest
 
-fanoutResults :: TChan (JobID, Maybe BrowserID, JobResult) -> TVar (Map BrowserID Browser) -> IO ()
+fanoutResults :: TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
+              -> TVar BrowserMap -> IO ()
 fanoutResults results browsers = forever $ do
   (browserMatch, res) <- atomically $ do
     (wrk,br,res) <- readTChan results
-    brs <- readTVar  browsers
+    EntityMap brs <- readTVar  browsers
     return (flip Map.lookup brs =<< br, res)
   case browserMatch of
     Nothing -> return ()
     Just b  -> WS.sendTextData (bConn b) (A.encode (JobFinished (jrJob res, res)))
 
+type WorkerMap = Map.Map (EntityID WorkerProfile) Worker
+
 runBrowser :: WS.PendingConnection
-           -> TVar (Map.Map BrowserID Browser)
-           -> TVar (Map.Map WorkerID  Worker)
+           -> TVar BrowserMap
+           -> TVar (Map.Map (EntityID WorkerProfile) Worker)
            -> IO ()
 runBrowser pending browsers workers = do
   print "Run browser"
-  lastWorkers <- newTVarIO Map.empty
+  lastWorkers <- newTVarIO $ Map.empty
   conn <- WS.acceptRequest pending
-  i    <- BrowserID <$> nextRandom
+  i    <- EntityID <$> nextRandom
   WS.sendTextData conn (A.encode $ SetBrowserID i)
   res  <- newTChanIO
   let browser = Browser i conn res
-  atomically $ modifyTVar browsers (Map.insert i browser)
+  atomically $ modifyTVar browsers (EntityMap . Map.insert i browser . unEntityMap)
   flip finally (disconnect i) $ do
     _ <- forkIO (process conn lastWorkers workers)
     listen conn res
   where
     disconnect i =
-      atomically $ modifyTVar browsers (Map.delete i)
+      atomically $ modifyTVar browsers (EntityMap . Map.delete i . unEntityMap)
+    process :: WS.Connection
+            -> TVar (Map (EntityID WorkerProfile) Worker)
+            -> TVar (Map (EntityID WorkerProfile) Worker)
+            -> IO ()
     process conn wsVar wsVar' = do
       (newWorkers, leftWorkers) <- atomically $ do
         ws' <- readTVar wsVar'
@@ -102,7 +111,7 @@ runBrowser pending browsers workers = do
             leftWorkers = Map.difference ws ws'
         when (Map.null newWorkers && Map.null leftWorkers) retry
         writeTVar wsVar ws'
-        return (newWorkers :: Map.Map WorkerID Worker, leftWorkers)
+        return (newWorkers , leftWorkers)
       forM_ (Map.toList newWorkers) $ \(wi, w) ->
         WS.sendTextData conn (A.encode (WorkerJoined wi (_wProfile w)))
       forM_ (Map.toList leftWorkers) $ \(wi, _) ->
@@ -122,23 +131,26 @@ runBrowser pending browsers workers = do
 runWorker :: WS.PendingConnection
           -> WorkerProfile
           -- ^ Worker setup info
-          -> TVar (Map.Map WorkerID Worker)
+          -> TVar (Map (EntityID WorkerProfile) Worker)
           -- ^ Worker map - for self-inserting and deleting
-          -> TVar (Map.Map BrowserID Browser)
-          -> TChan (JobID, Maybe BrowserID, JobResult)
+          -> TVar BrowserMap
+          -> TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
           -- ^ Completion write channel
           -> IO ()
 runWorker pending wp workers browsers resultsChan = do
   conn     <- WS.acceptRequest pending
-  i        <- WorkerID <$> nextRandom
+  i :: EntityID WorkerProfile <- EntityID <$> nextRandom
   jobsChan <- atomically newTChan
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
   flip finally (disconnect i) $ talk conn jobsChan
   where
-    disconnect i = atomically $ modifyTVar workers $ Map.delete i
+    disconnect i = atomically $ modifyTVar workers
+                              $ Map.delete i
 
-    talk :: WS.Connection -> TChan (JobID, Maybe BrowserID, Job) -> IO ()
+    talk :: WS.Connection
+         -> TChan (EntityID Job, Maybe (EntityID Browser), Job)
+         -> IO ()
     talk conn jobsChan = do
       (jID, brID, j) <- atomically (readTChan jobsChan)
       WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
@@ -148,7 +160,8 @@ runWorker pending wp workers browsers resultsChan = do
       atomically (writeTChan resultsChan (jID', brID', jr))
       talk conn jobsChan
 
-    listenTillDone :: WS.Connection -> IO (JobID, Maybe BrowserID, JobResult)
+    listenTillDone :: WS.Connection
+                   -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
     listenTillDone conn = do
       msg <- WS.receive conn
       case msg of

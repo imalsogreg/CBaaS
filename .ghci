@@ -1,4 +1,3 @@
-:set +c
 :set -isrc -itest
 import Data.Proxy
 import Servant.Matlab
