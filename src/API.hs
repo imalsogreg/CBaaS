@@ -31,10 +31,10 @@ import           Job
 --   For more information about API specifications, see the Servant
 --   <http://haskell-servant.github.io documentation>
 type API1 = "user"        :> UserAPI
-  :<|> "worker"           :> Get '[JSON] WorkerMap
-  :<|> "callfun" :> QueryParam "worker-id" WorkerID
-                 :> QueryParam "browser-id" BrowserID
-                 :> ReqBody '[JSON] Job :> Post '[JSON] JobID
+  :<|> "worker"           :> Get '[JSON] WorkerProfileMap
+  :<|> "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
+                 :> QueryParam "browser-id" (EntityID Browser)
+                 :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
 
 
 ------------------------------------------------------------------------------

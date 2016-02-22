@@ -41,7 +41,7 @@ import Job
 -- | Top-level API server implementation
 serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
-       :<|> listWorkers
+       :<|> listOnlineWorkers
        :<|> callfun
 
 
@@ -94,23 +94,22 @@ crudServer p =
 
   in getAll :<|> get :<|> post :<|> put :<|> delete
 
-listWorkers :: Server (Get '[JSON] WorkerMap) AppHandler
-listWorkers = do
+listOnlineWorkers :: Server (Get '[JSON] WorkerProfileMap) AppHandler
+listOnlineWorkers = do
   wrks <- liftIO . atomically . readTVar =<< gets _workers
-  return (WorkerMap $ Map.map _wProfile wrks)
+  return (EntityMap $ Map.map _wProfile wrks)
 
 callfun
-  :: Server (QueryParam "worker-id" WorkerID
-             :> QueryParam "browser-id" BrowserID
+  :: Server (QueryParam "worker-id" (EntityID WorkerProfile)
+             :> QueryParam "browser-id" (EntityID Browser)
              :> ReqBody '[JSON] Job
-             :> Post '[JSON] JobID) AppHandler
-callfun (Just wID) bID job = do
-  wrks <- liftIO . atomically . readTVar =<< gets _workers
-  liftIO (print $ Map.map _wProfile wrks)
+             :> Post '[JSON] (EntityID Job)) AppHandler
+callfun (Just wID :: Maybe (EntityID WorkerProfile)) bID job = do
+  wrks :: Map.Map (EntityID WorkerProfile) Worker <- liftIO . atomically . readTVar =<< gets _workers
   case Map.lookup wID wrks of
-    Nothing -> liftIO (print "No match") >> pass
-    Just w  -> do
-      jID  <- JobID <$> liftIO nextRandom
+    Nothing                  -> liftIO (print "No match") >> pass
+    (Just w :: Maybe Worker) -> do
+      jID  <- EntityID <$> liftIO nextRandom
       liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)
       return jID
 

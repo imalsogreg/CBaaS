@@ -15,9 +15,13 @@ function wswork() {
         console.log('Got message: ' + m.data);
         var req = JSON.parse(m.data);
         console.log(req);
-        var jobid = req.contents[0];
+        var jobid     = req.contents[0];
         var browserid = req.contents[1];
-        var res = {'tag':'VText', 'contents': reverse(req.contents[2].arg)};
+        var cbaas_arg = req.contents[2].arg;
+        if (!(cbaas_arg.tag == 'VText')){
+            throw new Error('testworker called with not-text argument');
+        }
+        var res = {'tag':'VText', 'contents': reverse(cbaas_arg.contents)};
         var resMsg = {tag:'WorkerFinished', contents:[jobid,browserid,{job:jobid, value:res}]};
         w.send(JSON.stringify(resMsg));
         console.log('Sent response: ');

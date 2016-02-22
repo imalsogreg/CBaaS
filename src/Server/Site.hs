@@ -36,6 +36,7 @@ import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           API
 -- import           Combo
+import           EntityID
 import           Server.Application
 import           Server.APIServer
 import           WebSocketServer
@@ -99,8 +100,8 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
     a   <- nestSnaplet "auth" auth $
              initPostgresAuth sess p
-    w   <- liftIO $ newTVarIO Data.Map.empty
-    b   <- liftIO $ newTVarIO Data.Map.empty
+    w   <- liftIO $ newTVarIO $ Data.Map.empty
+    b   <- liftIO $ newTVarIO $ EntityMap Data.Map.empty
     j   <- liftIO newBroadcastTChanIO
     r   <- liftIO newBroadcastTChanIO
     addRoutes routes

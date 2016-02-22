@@ -6,7 +6,7 @@
     <input type="text"
            placeholder="reverse" id="fun-name"/>
     <input type="text"
-           placeholder="Hello" id="fun-args"/>
+           placeholder="Hello" id="fun-arg"/>
     <button class="btn btn-default"
             type="button" id="call-button"
             onclick="callFun()">Call</button>

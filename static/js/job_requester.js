@@ -18,9 +18,10 @@ function exprFunAndArg(s) {
 
 function callFun(){
     var fName = $('#fun-name')[0].value;
+    var fArg  = $('#fun-arg')[0].value;
     if (functions[fName]) {
         var workersForFn = functions[fName];
-        vaa
+        var url = 'api1/callfun?worker-id=' + workersForFn[0];
 
         if (mybrowserid != undefined) {
             url = url + '&browser-id=' + mybrowserid;
@@ -29,7 +30,7 @@ function callFun(){
                       contents: fArg
                      };
         $.ajax(url,
-               {'success':renderResult,
+               {'success':renderTicketNumber,
                 'failure':renderError,
                 'headers':{'Accept':'application/json',
                            'Content-Type':'application/json'},
@@ -39,11 +40,8 @@ function callFun(){
     }
 }
 
-function renderResult(d,tStatus,jqxhr){
-    var retVal = d.contents[1];
-    if (retVal.tag === 'VText'){
-      $('body').append(retVal.contents);
-    }
+function renderTicketNumber(d,tStatus,jqxhr){
+    console.log('renderResult:');
 }
 
 function renderError(e) {

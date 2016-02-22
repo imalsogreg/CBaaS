@@ -18,6 +18,7 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.PostgresqlSimple
 import Snap.Snaplet.Session
 
+import EntityID
 import Combo
 import Worker
 import Browser
@@ -30,10 +31,10 @@ data App = App
     , _db       :: Snaplet Postgres
     , _sess     :: Snaplet SessionManager
     , _auth     :: Snaplet (AuthManager App)
-    , _workers  :: TVar  (Map WorkerID Worker)
-    , _browsers :: TVar (Map BrowserID Browser)
-    , _jqueue   :: TChan (WorkerID, JobID, Model.Val)
-    , _rqueue   :: TChan (WorkerID, JobID, Model.Val)
+    , _workers  :: TVar  (Map (EntityID WorkerProfile) Worker)
+    , _browsers :: TVar  BrowserMap
+    , _jqueue   :: TChan (EntityID Worker, EntityID Job, Model.Val)
+    , _rqueue   :: TChan (EntityID Worker, EntityID Job, Model.Val)
     -- , _combo :: Snaplet ComboState -- TODO: having trouble
                                       --       with SnapletInit here
     }

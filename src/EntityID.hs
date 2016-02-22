@@ -1,10 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric     #-}
+
 
 module EntityID where
 
 import           Control.Monad (mzero)
 import qualified Data.Aeson as A
 import           Data.Aeson (FromJSON, ToJSON)
+import qualified Data.Map as Map
 import           Data.Monoid
 import           Data.Text (unpack)
 import qualified Data.UUID as UUID
@@ -12,6 +15,7 @@ import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.FromField
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.ToRow
+import           GHC.Generics
 import           Servant.API
 import           Web.HttpApiData
 
@@ -20,6 +24,12 @@ import           Web.HttpApiData
 --   so that we can manually define how to convert id's into JSON data
 newtype EntityID a = EntityID { unID :: UUID.UUID }
   deriving (Show, Read, Eq, Ord)
+
+newtype EntityMap a = EntityMap { unEntityMap :: Map.Map (EntityID a) a }
+                      deriving (Eq, Ord, Generic)
+
+instance ToJSON a => ToJSON (EntityMap a) where
+  toJSON (EntityMap m) = A.toJSON (Map.mapKeys (UUID.toText . unID) m)
 
 
 ------------------------------------------------------------------------------
