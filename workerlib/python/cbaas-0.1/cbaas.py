@@ -1,24 +1,44 @@
 import websocket
+import logging
 import tempfile
 from os import remove
 
-def decode_cbaas_argument(msg):
-    return 1
+logging.basicConfig() # TODO is this the right time to run this?
 
 class Listener:
     """A work listener for attaching to CBaaS servers"""
 
     def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False):
 
-        ws = websocket.WebSocketApp(host,
-                                    on_message = handle_message,
-                                    on_error   = on_error,
-                                    on_close   = on_close)
+        ws = websocket.WebSocketApp(host + ':9160/worker?name=test&function=fix',
+                                    on_close   = lambda msg: show_close(msg),
+                                    on_message = lambda msg: _handle_message(ws,msg,on_job), 
+                                    on_error   = show_err,
+                                    on_open    = show_open
+                                   )
 
-    def handle_message(ws, message):
-        msg_arg = _message_argument(msg)
-        v = decode_message_argument(msg)
-        return 1
+        print "Init about to run_forever"
+        ws.run_forever()
+        print "Init finished run_forever"
+
+def _handle_message(ws, message, on_job):
+    msg_arg = _message_argument(msg)
+    v = decode_message_argument(msg)
+    r = on_job(v)
+    msg_r = _encode_cbaas_value(r)
+    ws.send(msg_r)
+
+def show_open(message):
+  print 'CBaaS websocket OPEN (message)'
+  print message
+
+def show_err(ws, e):
+  print ('CBaaS websocket ERROR')
+  print e
+
+def show_close(ws):
+  print ('CBaaS websocket CLOSE')
+
 
 
 def _decode_cbaas_value(kv):
@@ -84,3 +104,11 @@ def _message_argument(msg):
     except Exception as e:
         raise Exception('Message decoding error, ' + str(e))
 
+if __name__ == "__main__":
+  def work(x):
+    print "Working on: " + x
+    return x[::-1]
+  print "Main!"
+  l = Listener(on_job=work, host="ws://nixbox", verbose=True)
+  print "Finished"
+  
