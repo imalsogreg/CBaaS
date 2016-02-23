@@ -12,7 +12,7 @@ class Listener:
 
         ws = websocket.WebSocketApp(host + ':9160/worker?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
-                                    on_message = lambda msg: _handle_message(ws,msg,on_job), 
+                                    on_message = lambda ws, msg: _handle_message(ws,msg,on_job), 
                                     on_error   = show_err,
                                     on_open    = show_open
                                    )
@@ -21,7 +21,7 @@ class Listener:
         ws.run_forever()
         print "Init finished run_forever"
 
-def _handle_message(ws, message, on_job):
+def _handle_message(ws, msg, on_job):
     msg_arg = _message_argument(msg)
     v = decode_message_argument(msg)
     r = on_job(v)
