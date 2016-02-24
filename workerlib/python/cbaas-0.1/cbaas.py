@@ -11,6 +11,54 @@ from json import dumps, loads
 
 logging.basicConfig() # TODO is this the right time to run this?
 
+def package_image_binary(binary_blob):
+    """Create a temporary file for an image and return its filename.
+       The file will be created in your system's temp directory,
+       but you should probably delete it after use anyway.
+    """
+    mimetype = imghdr.what('',binary_blob)
+    print "NEW VERSION2"
+    if mimetype == None:
+        raise Exception('Failed to identify image format for binary.') 
+    else:
+        t  = tempfile.mkstemp(suffix=('.' + mimetype))
+        tf1 = open(t[1],'wb')
+        tf1.write(binary_blob)
+        tf1.close()
+        print t[1]
+        return t[1]
+
+class Listener:
+    """A work listener for attaching to CBaaS servers"""
+
+    def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False):
+
+        ws = websocket.WebSocketApp(host + ':9160/worker?name=test&function=fix',
+                                    on_close   = lambda msg: show_close(msg),
+                                    on_message = lambda ws, msg: _handle_message(ws,msg,on_job), 
+                                    on_error   = show_err,
+                                    on_open    = show_open
+                                   )
+
+        print "Init about to run_forever"
+        ws.run_forever()
+        print "Init finished run_forever"
+
+def _handle_message(ws, msgstr, on_job):
+    msg = loads(msgstr)
+    msg_arg = _message_argument(msg)
+    v = _decode_cbaas_value(msg_arg)
+    r = on_job(v)
+    cbaas_r = _encode_cbaas_value(r)
+    msg_r = {'tag':'WorkerFinished',
+             'contents':[
+               msg['contents'][0],
+               msg['contents'][1],
+               {'job':msg['contents'][0],'value':cbaas_r}
+             ]
+            }
+    ws.send(dumps(msg_r))
+    print "SUCCESSFULL SEND"
 
 def _decode_cbaas_value(kv):
     """Convert a CBaaS JSON-encoded value into a Python value
@@ -53,40 +101,6 @@ def _encode_cbaas_value(v):
         print t
         raise Exception('Tried to serialize unknown type')
 
-
-class Listener:
-    """A work listener for attaching to CBaaS servers"""
-
-    def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False):
-
-        ws = websocket.WebSocketApp(host + ':9160/worker?name=test&function=fix',
-                                    on_close   = lambda msg: show_close(msg),
-                                    on_message = lambda ws, msg: _handle_message(ws,msg,on_job), 
-                                    on_error   = show_err,
-                                    on_open    = show_open
-                                   )
-
-        print "Init about to run_forever"
-        ws.run_forever()
-        print "Init finished run_forever"
-
-def _handle_message(ws, msgstr, on_job):
-    msg = loads(msgstr)
-    msg_arg = _message_argument(msg)
-    v = _decode_cbaas_value(msg_arg)
-    r = on_job(v)
-    cbaas_r = _encode_cbaas_value(r)
-    msg_r = {'tag':'WorkerFinished',
-             'contents':[
-               msg['contents'][0],
-               msg['contents'][1],
-               {'job':msg['contents'][0],'value':cbaas_r}
-             ]
-            }
-    ws.send(dumps(msg_r))
-    print "SUCCESSFULL SEND"
-
-
 def show_open(message):
   print 'CBaaS websocket OPEN (message)'
   print message
@@ -107,7 +121,7 @@ def _load_through_tmp_image(blob):
         tf = open(t[1],'wb')
         tf.write(blob)
         tf.close()
-        i = skimage.io.imread(t[1])
+        i = skimage.img_as_float(skimage.io.imread(t[1]))
         remove(t[1])
         return i
     else:
