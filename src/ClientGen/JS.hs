@@ -9,5 +9,5 @@ import Servant.JS
 
 import API
 
-jsCode :: Text
-jsCode = jsForAPI (Proxy :: Proxy API1) vanillaJS
+-- jsCode :: Text
+-- jsCode = jsForAPI (Proxy :: Proxy API1) vanillaJS

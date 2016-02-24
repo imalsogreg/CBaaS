@@ -8,8 +8,17 @@ var workers   = {};
 var functions = {};
 
 $('document').ready(function (){
-    w = new WebSocket('ws://localhost:9160/browser');
+    var loc = window.location, new_uri;
+    if (loc.protocol === "https:") {
+      new_uri = "wss:";
+    } else {
+      new_uri = "ws:";
+    }
+    new_uri += "//" + loc.host;
+    new_uri += loc.pathname + "api1/browse"
+    w = new WebSocket(new_uri);
     w.onmessage = function (m) {
+        console.log(m);
         var msg = JSON.parse(m.data);
         var thisFunc = msg.contents[1].function;
         if (msg.tag == "WorkerJoined") {

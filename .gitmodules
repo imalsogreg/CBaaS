@@ -7,3 +7,6 @@
 [submodule "deps/servant-matlab"]
 	path = deps/servant-matlab
 	url = http://github.com/imalsogreg/servant-matlab
+[submodule "deps/websockets-snap"]
+	path = deps/websockets-snap
+	url = https://github.com/jaspervdj/websockets-snap

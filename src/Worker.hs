@@ -57,6 +57,9 @@ instance FromJSON WorkerProfile where
     <*> o .: "function"
     <*> o .: "tags"
 
+instance FromHttpApiData WorkerName where
+  parseUrlPiece = Right . WorkerName
+
 newtype WorkerName = WorkerName { unWN :: Text }
   deriving (Eq, Ord, Show, Generic)
 

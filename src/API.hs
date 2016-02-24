@@ -14,7 +14,8 @@ import           Data.Text     (Text, pack, unpack)
 import qualified Data.UUID     as UUID
 import           Data.UUID     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
-                               ,Capture, ReqBody, Raw, FormUrlEncoded, QueryParam)
+                               ,Capture, ReqBody, Raw, FormUrlEncoded
+                               ,QueryParam, QueryParams)
 import           Snap.Snaplet.Auth
 import           EntityID
 import           Permissions
@@ -35,6 +36,12 @@ type API1 = "user"        :> UserAPI
   :<|> "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
                  :> QueryParam "browser-id" (EntityID Browser)
                  :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
+  :<|> "browse"  :> Raw
+  :<|> "work"    :> QueryParam  "name"     WorkerName
+                 :> QueryParam  "function" Text
+                 :> QueryParams "tags"     Text -- TODO Make a Tag type
+                 :> Raw
+  -- :<|> "work"    :> QueryParam "worker-profile" WorkerProfile :> Raw
 
 
 ------------------------------------------------------------------------------

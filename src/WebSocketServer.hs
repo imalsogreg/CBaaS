@@ -16,6 +16,7 @@ import Data.ByteString.Char8 (ByteString, unpack)
 import Data.List
 import Data.Map
 import qualified Data.Map as Map
+import Data.Monoid
 import Data.UUID.V4
 import GHC.Generics
 import Snap.Snaplet.PostgresqlSimple
@@ -30,42 +31,42 @@ import qualified Model as Model
 import Worker
 import Browser
 
-launchWebsocketServer :: Postgres
-                   -- ^ SQL connection
-                   -> TVar (Map.Map (EntityID WorkerProfile) Worker)
-                   -- ^ All registered workers
-                   -> TVar BrowserMap
-                   -> TChan (EntityID Worker, EntityID Job, Model.Val)
-                   -- ^ Read-end of a work queue
-                   -> TChan (EntityID Worker, EntityID Job, Model.Val)
-                   -- ^ Read-end of a job completion queue
-                   -> IO ()
-launchWebsocketServer pg workers browsers jobs results = do
-  resultsChan <- newTChanIO
-  _ <- forkIO (fanoutResults resultsChan browsers)
-  WS.runServer "0.0.0.0" 9160 $ \pending -> do
-    let uri = parseRelativeRef strictURIParserOptions (reqPath pending)
+-- launchWebsocketServer :: Postgres
+--                    -- ^ SQL connection
+--                    -> TVar (Map.Map (EntityID WorkerProfile) Worker)
+--                    -- ^ All registered workers
+--                    -> TVar BrowserMap
+--                    -> TChan (EntityID Worker, EntityID Job, Model.Val)
+--                    -- ^ Read-end of a work queue
+--                    -> TChan (EntityID Worker, EntityID Job, Model.Val)
+--                    -- ^ Read-end of a job completion queue
+--                    -> IO ()
+-- launchWebsocketServer pg workers browsers jobs results = do
+--   resultsChan <- newTChanIO
+--   _ <- forkIO (fanoutResults resultsChan browsers)
+--   WS.runServer "0.0.0.0" 9160 $ \pending -> do
+--     let uri = parseRelativeRef strictURIParserOptions (reqPath pending)
 
-    case rrPath <$> uri of
-      Right "/worker" ->
-        case parseWorkerProfile =<< first show (fmap rrQuery uri) of
-          Left e -> putStrLn e
-          Right wp -> do
-            () <- runWorker pending wp workers browsers resultsChan
-            print "Saw a wp"
-            putStrLn "Running Worker WS"
-            hFlush stdout
-            return ()
-      Right "/browser" -> do
-        runBrowser pending browsers workers
-        putStrLn "Running Browser WS"
-        hFlush stdout
-        return ()
-      _ -> do
-        putStrLn $ "Bad request path: " ++ unpack (reqPath pending)
-        hFlush stdout
+--     case rrPath <$> uri of
+--       Right "/worker" ->
+--         case parseWorkerProfile =<< first show (fmap rrQuery uri) of
+--           Left e -> putStrLn e
+--           Right wp -> do
+--             () <- runWorker pending wp workers browsers resultsChan
+--             print "Saw a wp"
+--             putStrLn "Running Worker WS"
+--             hFlush stdout
+--             return ()
+--       Right "/browser" -> do
+--         runBrowser pending browsers workers
+--         putStrLn "Running Browser WS"
+--         hFlush stdout
+--         return ()
+--       _ -> do
+--         putStrLn $ "Bad request path: " ++ unpack (reqPath pending)
+--         hFlush stdout
 
-  where reqPath = WS.requestPath . WS.pendingRequest
+--   where reqPath = WS.requestPath . WS.pendingRequest
 
 fanoutResults :: TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
               -> TVar BrowserMap -> IO ()
@@ -160,19 +161,35 @@ runWorker pending wp workers browsers resultsChan = do
       atomically (writeTChan resultsChan (jID', brID', jr))
       talk conn jobsChan
 
-    listenTillDone :: WS.Connection
-                   -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
+    listenTillDone :: WS.Connection -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
     listenTillDone conn = do
-      msg <- WS.receive conn
-      case msg of
-        WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
-        WS.DataMessage m -> do
-          let contents = case m of
-                WS.Text c   -> c
-                WS.Binary c -> c
-          case A.decode contents of
-            Just (WorkerFinished (_,b,r)) ->
-              return (jrJob r, b, r)
-            Just (WorkerStatusUpdate (j,b,r)) -> do
-              atomically $ writeTChan resultsChan (j,b,r)
-              listenTillDone conn
+        m <- WS.receiveData conn
+        case A.decode m of
+          Just (WorkerFinished (_,b,r)) ->
+            return (jrJob r, b, r)
+          Just (WorkerStatusUpdate (j,b,r)) -> do
+            atomically $ writeTChan resultsChan (j,b,r)
+            listenTillDone conn
+
+--     listenTillDone :: WS.Connection
+--                    -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
+--     listenTillDone conn = do
+--       msg <- WS.receive conn
+--       -- m <- WS.receiveData conn
+--       print $ "Msg: " ++ show msg
+--       -- print $ "m" <> show m
+--       case msg of
+--         WS.ControlMessage (WS.Close n b) -> throw (WS.CloseRequest n b)
+          
+--         WS.DataMessage m -> do
+--             let contents = case m of
+--                   WS.Text c   -> c
+--                   WS.Binary c -> c
+--             case A.decode contents of
+-- --       case A.decode m of
+--                   Just (WorkerFinished (_,b,r)) ->
+--                     return (jrJob r, b, r)
+--                   Just (WorkerStatusUpdate (j,b,r)) -> do
+--                     atomically $ writeTChan resultsChan (j,b,r)
+--                     listenTillDone conn
+

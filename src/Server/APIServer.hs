@@ -18,9 +18,12 @@ import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
 import Data.Monoid ((<>))
 import Data.Proxy
+import Data.Text
 import Data.Text.Encoding (encodeUtf8)
 import Data.UUID.V4
 import Database.PostgreSQL.Simple.Types
+import Network.WebSockets
+import Network.WebSockets.Snap
 import Servant.API
 import Servant.Server
 import Snap.Core
@@ -36,6 +39,7 @@ import Server.Application
 import Server.Crud
 import Browser
 import Job
+import WebSocketServer
 
 ------------------------------------------------------------------------------
 -- | Top-level API server implementation
@@ -43,6 +47,8 @@ serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
        :<|> listOnlineWorkers
        :<|> callfun
+       :<|> serveBrowserWS
+       :<|> serveWorkerWS
 
 
 serverAuth :: Server UserAPI AppHandler
@@ -105,7 +111,8 @@ callfun
              :> ReqBody '[JSON] Job
              :> Post '[JSON] (EntityID Job)) AppHandler
 callfun (Just wID :: Maybe (EntityID WorkerProfile)) bID job = do
-  wrks :: Map.Map (EntityID WorkerProfile) Worker <- liftIO . atomically . readTVar =<< gets _workers
+  wrks :: Map.Map (EntityID WorkerProfile) Worker <-
+    liftIO . atomically . readTVar =<< gets _workers
   case Map.lookup wID wrks of
     Nothing                  -> liftIO (print "No match") >> pass
     (Just w :: Maybe Worker) -> do
@@ -113,3 +120,29 @@ callfun (Just wID :: Maybe (EntityID WorkerProfile)) bID job = do
       liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)
       return jID
 
+serveBrowserWS :: Server Raw AppHandler
+serveBrowserWS = do
+  brs <- gets _browsers
+  wks <- gets _workers
+  -- runWebSocketsSnapWith myOpts $ \pending -> runBrowser pending brs wks
+  runWebSocketsSnap $ \pending -> runBrowser pending brs wks
+    where myOpts = ConnectionOptions (print "SERVE BROWSER PONG!")
+
+serveWorkerWS :: Maybe WorkerName -> Maybe Text -> [Text] -> AppHandler ()
+serveWorkerWS (Just wName) (Just fName) tags = do
+  liftIO $ print "We hit the right endpoint"
+  brs     <- gets _browsers
+  wks     <- gets _workers
+  results <- gets _rqueue
+  liftIO $ print "ServeWorker: about to runWebSockets"
+  --runWebSocketsSnapWith (ConnectionOptions myOnPong) $ \pending -> do
+  runWebSocketsSnap $ \pending -> do
+    print "Running"
+    runWorker pending (WorkerProfile wName fName tags) wks brs results
+      where myOnPong = print "SERVE WORKER PONG!"
+serveWorkerWS Nothing _ _ = do
+  liftIO $ print "No name"
+  writeBS "Please give a worker-name parameter"
+serveWorkerWS _ Nothing _ = do
+  liftIO $ print "No function"
+  writeBS "Please give a function-name parameter"

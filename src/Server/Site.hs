@@ -103,11 +103,11 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     w   <- liftIO $ newTVarIO $ Data.Map.empty
     b   <- liftIO $ newTVarIO $ EntityMap Data.Map.empty
     j   <- liftIO newBroadcastTChanIO
-    r   <- liftIO newBroadcastTChanIO
+    r   <- liftIO newTChanIO -- newBroadcastTChanIO
     addRoutes routes
-    _ <- liftIO $ forkIO $
-         atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
-         uncurry (launchWebsocketServer (p ^. snapletValue) w b)
+    -- _ <- liftIO $ forkIO $
+    --      atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
+    --      uncurry (launchWebsocketServer (p ^. snapletValue) w b)
     return $ App h p s a w b j r
 
 -- comboInit :: SnapletInit b ComboState

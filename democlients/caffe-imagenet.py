@@ -61,5 +61,5 @@ if __name__ == "__main__":
   v = {'tag':'VImage','contents':b64encode(b)}
   fn = cbaas.package_image_binary(b)
   print fn
-  l = cbaas.Listener(host='ws://nixbox', on_job=do_work)
+  l = cbaas.Listener(host='ws://localhost:8000', on_job=do_work)
   print "Finished (why?)"

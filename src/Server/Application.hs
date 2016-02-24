@@ -34,7 +34,8 @@ data App = App
     , _workers  :: TVar  (Map (EntityID WorkerProfile) Worker)
     , _browsers :: TVar  BrowserMap
     , _jqueue   :: TChan (EntityID Worker, EntityID Job, Model.Val)
-    , _rqueue   :: TChan (EntityID Worker, EntityID Job, Model.Val)
+    --, _rqueue   :: TChan (EntityID Worker, EntityID Job, Model.Val)
+    , _rqueue   :: TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
     -- , _combo :: Snaplet ComboState -- TODO: having trouble
                                       --       with SnapletInit here
     }

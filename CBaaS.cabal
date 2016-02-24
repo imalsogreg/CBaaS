@@ -56,6 +56,7 @@ library
                      , uuid >= 1.3.11 && < 1.4
                      , vector
                      , websockets >= 0.9 && < 0.10
+                     , websockets-snap >= 1.0 && < 1.1
   hs-source-dirs:      src
   exposed-modules:     API
                        APIDocs
@@ -102,6 +103,7 @@ executable server
                     , time
                     , unix
                     , websockets
+                    , websockets-snap >= 1.0 && < 1.1
  hs-source-dirs:    exec
  main-is:           ServerMain.hs
  ghc-options: -threaded -rtsopts "-with-rtsopts=-N"

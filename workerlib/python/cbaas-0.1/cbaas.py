@@ -33,18 +33,32 @@ class Listener:
 
     def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False):
 
-        ws = websocket.WebSocketApp(host + ':9160/worker?name=test&function=fix',
+        ws = websocket.WebSocketApp(host + '/api1/work?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
                                     on_message = lambda ws, msg: _handle_message(ws,msg,on_job), 
                                     on_error   = show_err,
-                                    on_open    = show_open
+                                    on_open    = show_open,
+                                    on_ping    = lambda ws, payload: _handle_ping(ws, payload),
+                                    on_pong    = lambda ws, payload: _handle_pong(ws, payload)
                                    )
 
         print "Init about to run_forever"
         ws.run_forever()
         print "Init finished run_forever"
 
+def _handle_ping(ws, payload):
+    print "CALLBACK PING, sending PONG"
+    print "PING PAYLOAD:"
+    print payload
+    ws.sock.pong(payload)
+    print "Send pong"
+
+def _handle_pong(ws,payload):
+    print "CALLBACK PONG"
+
 def _handle_message(ws, msgstr, on_job):
+    print "(cbaas) HANDLE_MESSAGE"
+    print msgstr
     msg = loads(msgstr)
     msg_arg = _message_argument(msg)
     v = _decode_cbaas_value(msg_arg)
