@@ -71,6 +71,7 @@ def _handle_message(ws, msgstr, on_job):
                {'job':msg['contents'][0],'value':cbaas_r}
              ]
             }
+    print "ABOUT TO SEND"
     ws.send(dumps(msg_r))
     print "SUCCESSFULL SEND"
 

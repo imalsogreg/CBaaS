@@ -6,6 +6,7 @@ module WebSocketServer where
 
 
 import Control.Concurrent
+import Control.Concurrent.Async
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
 import Control.Exception
@@ -86,24 +87,35 @@ runBrowser :: WS.PendingConnection
            -> TVar (Map.Map (EntityID WorkerProfile) Worker)
            -> IO ()
 runBrowser pending browsers workers = do
-  print "Run browser"
   lastWorkers <- newTVarIO $ Map.empty
   conn <- WS.acceptRequest pending
   i    <- EntityID <$> nextRandom
   WS.sendTextData conn (A.encode $ SetBrowserID i)
   res  <- newTChanIO
-  let browser = Browser i conn res
-  atomically $ modifyTVar browsers (EntityMap . Map.insert i browser . unEntityMap)
+  atomically $ modifyTVar browsers 
+    (EntityMap . Map.insert i (Browser i conn res) . unEntityMap)
+
+  -- _ <- forkIO $ do
+  --   atomically (readTChan resultsChan) >>= \r ->
+  --        WS.sendTextData conn (A.encode r)
   flip finally (disconnect i) $ do
     _ <- forkIO (process conn lastWorkers workers)
+    _ <- forkIO (runChannel conn res)
     listen conn res
+    print "Finished listening."
   where
+
     disconnect i =
       atomically $ modifyTVar browsers (EntityMap . Map.delete i . unEntityMap)
-    process :: WS.Connection
-            -> TVar (Map (EntityID WorkerProfile) Worker)
-            -> TVar (Map (EntityID WorkerProfile) Worker)
-            -> IO ()
+
+    runChannel conn resultsChan = forever $ do
+      atomically (readTChan resultsChan) >>= \r -> do
+        WS.sendTextData conn (A.encode r)
+
+    listen conn resultsChan = forever $ do
+      WS.receiveData conn >>= \(d :: ByteString) -> 
+        print "Really wasn't expecting messages here."
+
     process conn wsVar wsVar' = do
       (newWorkers, leftWorkers) <- atomically $ do
         ws' <- readTVar wsVar'
@@ -118,13 +130,13 @@ runBrowser pending browsers workers = do
       forM_ (Map.toList leftWorkers) $ \(wi, _) ->
         WS.sendTextData conn (A.encode (WorkerLeft wi))
       process conn wsVar wsVar'
-    listen conn resultsChan = do
-      _ <- forkIO $ forever $ atomically (readTChan resultsChan) >>= \r ->
-        WS.sendTextData conn (A.encode r)
-      msg <- WS.receive conn
-      case msg of
-        WS.ControlMessage (WS.Close n b) -> print "Browser disconnect msg"
-        x -> print x >> listen conn resultsChan
+
+      -- _ <- forkIO $ forever $ atomically (readTChan resultsChan) >>= \r ->
+      --   WS.sendTextData conn (A.encode r)
+      -- msg <- WS.receive conn
+      -- case msg of
+      --   WS.ControlMessage (WS.Close n b) -> print "Browser disconnect msg"
+      --   x -> print x >> listen conn resultsChan
 
 
 ------------------------------------------------------------------------------
@@ -144,7 +156,17 @@ runWorker pending wp workers browsers resultsChan = do
   jobsChan <- atomically newTChan
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
-  flip finally (disconnect i) $ talk conn jobsChan
+  _ <- forkIO $ talk conn jobsChan
+  forever $ do
+    m <- WS.receiveData conn
+    case (A.decode m :: Maybe WorkerMessage) of
+      Just (WorkerFinished (_,b,r)) -> do
+        print "WORKER FINISHED"
+        atomically $ writeTChan resultsChan (jrJob r, b, r)
+      Just (WorkerStatusUpdate (j,b,r)) -> 
+        atomically $ writeTChan resultsChan (j,b,r)
+      _ -> print ("Got some data: " ++ show m)
+  -- flip finally (disconnect i) $ talk conn jobsChan
   where
     disconnect i = atomically $ modifyTVar workers
                               $ Map.delete i
@@ -153,17 +175,18 @@ runWorker pending wp workers browsers resultsChan = do
          -> TChan (EntityID Job, Maybe (EntityID Browser), Job)
          -> IO ()
     talk conn jobsChan = do
-      (jID, brID, j) <- atomically (readTChan jobsChan)
-      WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
-      print "listenTillDone"
-      (jID', brID', jr) <- listenTillDone conn
-      print "WriteTChan after listening"
-      atomically (writeTChan resultsChan (jID', brID', jr))
-      talk conn jobsChan
+        (jID, brID, j) <- atomically (readTChan jobsChan)
+        WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
+        -- print "listenTillDone"
+        -- (jID', brID', jr) <- listenTillDone conn
+        -- print "WriteTChan after listening"
+        -- atomically (writeTChan resultsChan (jID', brID', jr))
+        talk conn jobsChan
 
     listenTillDone :: WS.Connection -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
     listenTillDone conn = do
         m <- WS.receiveData conn
+        print $ "In listenTillDone, got: " ++ show m
         case A.decode m of
           Just (WorkerFinished (_,b,r)) ->
             return (jrJob r, b, r)

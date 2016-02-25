@@ -124,22 +124,17 @@ serveBrowserWS :: Server Raw AppHandler
 serveBrowserWS = do
   brs <- gets _browsers
   wks <- gets _workers
-  -- runWebSocketsSnapWith myOpts $ \pending -> runBrowser pending brs wks
   runWebSocketsSnap $ \pending -> runBrowser pending brs wks
-    where myOpts = ConnectionOptions (print "SERVE BROWSER PONG!")
 
 serveWorkerWS :: Maybe WorkerName -> Maybe Text -> [Text] -> AppHandler ()
 serveWorkerWS (Just wName) (Just fName) tags = do
-  liftIO $ print "We hit the right endpoint"
   brs     <- gets _browsers
   wks     <- gets _workers
   results <- gets _rqueue
   liftIO $ print "ServeWorker: about to runWebSockets"
-  --runWebSocketsSnapWith (ConnectionOptions myOnPong) $ \pending -> do
   runWebSocketsSnap $ \pending -> do
     print "Running"
     runWorker pending (WorkerProfile wName fName tags) wks brs results
-      where myOnPong = print "SERVE WORKER PONG!"
 serveWorkerWS Nothing _ _ = do
   liftIO $ print "No name"
   writeBS "Please give a worker-name parameter"

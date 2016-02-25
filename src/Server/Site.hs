@@ -108,6 +108,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     -- _ <- liftIO $ forkIO $
     --      atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
     --      uncurry (launchWebsocketServer (p ^. snapletValue) w b)
+    liftIO $ forkIO $ fanoutResults r b
     return $ App h p s a w b j r
 
 -- comboInit :: SnapletInit b ComboState

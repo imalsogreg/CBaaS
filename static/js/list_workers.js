@@ -17,6 +17,15 @@ $('document').ready(function (){
     new_uri += "//" + loc.host;
     new_uri += loc.pathname + "api1/browse"
     w = new WebSocket(new_uri);
+    w.onclose = function(m) {
+        console.log("CLOSED: " + m);
+    }
+    w.onerror = function(event){
+        console.log("ERROR");
+    }
+    w.onopen = function(event){
+        console.log("OPEN");
+    }
     w.onmessage = function (m) {
         console.log(m);
         var msg = JSON.parse(m.data);
@@ -43,6 +52,7 @@ $('document').ready(function (){
             $('body').append("<br/>" + msg.contents[1].value.contents);
         }
         listWorkers();
+        console.log('Finished onmessage handler');
     };
 
 });

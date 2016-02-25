@@ -18,3 +18,4 @@ snaplets/postgresql-simple/devel.cfg
 TAGS
 build
 *.pyc
+site_key.txt
