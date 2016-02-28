@@ -25,6 +25,7 @@ library
                      , deepseq >=1.4 && <1.5
                      , directory >=1.2 && <1.3
                      , filepath >=1.4 && <1.5
+                     , free >= 4.12 && < 4.13
                      , generics-sop >= 0.2 && < 0.3
                      , heist >= 1.0 && < 1.1
                      , http-api-data >= 0.2 && < 0.3
@@ -61,23 +62,24 @@ library
   hs-source-dirs:      src
   exposed-modules:     API
                        APIDocs
+                       Browser
+                       ClientGen.JS
+                       ClientGen.Matlab
                        Combo
                        EntityID
-                       RemoteFunction
                        Message
+                       Model
                        Permissions
-                       User
+                       RemoteFunction
                        Server.Application
                        Server.Site
                        Server.APIServer
                        Server.Crud
-                       ClientGen.JS
-                       ClientGen.Matlab
-                       Model
+                       Semantics
+                       User
                        WebSocketServer
                        Job
                        Worker
-                       Browser
                        WorkerClient
   build-tools:         hsc2hs
   default-language:    Haskell2010
