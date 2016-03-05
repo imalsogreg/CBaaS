@@ -20,6 +20,7 @@
 --
 -- Also this is my time to try to learn about free monad use :)
 ------------------------------------------------------------------------------
+
 module Semantics where
 
 import Control.Monad.Free
@@ -44,8 +45,6 @@ data CBaaSF a
 
 type CBaaS = Free CBaaSF
 
--- makeFree ''CBaaSF
--- Lots of errors here
 
 
 simulateCBaaSIO :: CBaaS a -> IO a

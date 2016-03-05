@@ -39,7 +39,7 @@ import Server.Application
 import Server.Crud
 import Browser
 import Job
-import WebSocketServer
+import Server.WebSocketServer
 
 ------------------------------------------------------------------------------
 -- | Top-level API server implementation

@@ -10,3 +10,6 @@
 [submodule "deps/websockets-snap"]
 	path = deps/websockets-snap
 	url = https://github.com/jaspervdj/websockets-snap
+[submodule "deps/groundhog"]
+	path = deps/groundhog
+	url = http://github.com/imalsogreg/groundhog

@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module WebSocketServer (
+module Server.WebSocketServer (
   fanoutResults,
   runBrowser,
   runWorker) where

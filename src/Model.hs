@@ -70,6 +70,20 @@ instance A.FromJSON Expr where
   parseJSON (A.Object v) = pure (Expr $ A.Object v)
   parseJSON _            = mzero
 
+data Type = TDouble
+          | TComplex
+          | TText
+          | TModelImage
+          | TList [Type]
+          | TVec
+          | TTuple Type Type
+          | TFunction Type Type
+  deriving (Eq, Ord, Show, GHC.Generics.Generic)
+
+instance A.ToJSON Type
+
+instance A.FromJSON Type
+
 data Val = -- VAny    A.Value
         --  |
            VDouble Double

@@ -39,7 +39,7 @@ import           API
 import           EntityID
 import           Server.Application
 import           Server.APIServer
-import           WebSocketServer
+import           Server.WebSocketServer
 
 
 ------------------------------------------------------------------------------
@@ -93,7 +93,6 @@ routes = [ ("login"   , with auth handleLoginSubmit)
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     cfg <- getSnapletUserConfig
-    -- c   <- nestSnaplet "" combo comboInit
     p   <- nestSnaplet "db" db pgsInit
     h   <- nestSnaplet "" heist $ heistInit "templates"
     s   <- nestSnaplet "sess" sess $
@@ -105,13 +104,5 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     j   <- liftIO newBroadcastTChanIO
     r   <- liftIO newTChanIO -- newBroadcastTChanIO
     addRoutes routes
-    -- _ <- liftIO $ forkIO $
-    --      atomically (liftA2 (,) (dupTChan j) (dupTChan r)) >>=
-    --      uncurry (launchWebsocketServer (p ^. snapletValue) w b)
     liftIO $ forkIO $ fanoutResults r b
     return $ App h p s a w b j r
-
--- comboInit :: SnapletInit b ComboState
--- comboInit = makeSnaplet "combo" "Postgres and websocket worker state" Nothing $ do
---   cfg <- getSnapletUserConfig
---   liftIO $ mkComboState cfg

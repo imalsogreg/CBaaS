@@ -1,6 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# language TemplateHaskell #-}
+{-# language QuasiQuotes #-}
+{-# language GADTs #-}
+{-# language FlexibleInstances #-}
+{-# language TypeFamilies #-}
 
 module Worker where
 
@@ -22,11 +27,16 @@ import qualified Network.WebSockets as WS
 import Servant.API
 import URI.ByteString
 import Web.HttpApiData
+import Database.Groundhog
+import Database.Groundhog.Core
+import Database.Groundhog.Generic
+import Database.Groundhog.TH
 
+import Browser
 import EntityID
 import Job
 import Model
-import Browser
+import RemoteFunction
 
 data Worker = Worker
   { _wProfile :: WorkerProfile
@@ -60,8 +70,8 @@ instance FromJSON WorkerProfile where
 instance FromHttpApiData WorkerName where
   parseUrlPiece = Right . WorkerName
 
-newtype WorkerName = WorkerName { unWN :: Text }
-  deriving (Eq, Ord, Show, Generic)
+data WorkerName = WorkerName { unWN :: Text }
+  deriving (Eq, Ord, Show, Read, Generic)
 
 instance ToJSON WorkerName where
   toJSON (WorkerName n) = A.String n
@@ -69,7 +79,6 @@ instance ToJSON WorkerName where
 instance FromJSON WorkerName where
   parseJSON (A.String n) = return $ WorkerName n
   parseJSON _ = mzero
-
 
 
 parseWorkerProfile :: Query -> Either String WorkerProfile
@@ -80,3 +89,12 @@ parseWorkerProfile q = do
            (decodeUtf8 fn)
            (map decodeUtf8 . map snd . filter ((== "tag") . fst) $ ps)
   where ps = queryPairs q
+
+-- TODO: fix field names, to snake case
+ghCodegenConfig = defaultCodegenConfig
+
+mkPersist defaultCodegenConfig [groundhog|
+  - primitive: WorkerName
+    converter: (unWN, WorkerName)
+  - entity: WorkerProfile
+|]
