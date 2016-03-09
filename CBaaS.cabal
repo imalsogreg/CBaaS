@@ -31,7 +31,7 @@ library
                      , groundhog-th
                      , heist >= 1.0 && < 1.1
                      , http-api-data >= 0.2 && < 0.3
-                     , JuicyPixels
+                     , JuicyPixels >= 3.2.7 && < 3.8
                      , lens >= 4.8 && < 4.14
                      , map-syntax
                      , monad-control

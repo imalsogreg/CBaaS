@@ -6,6 +6,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# language QuasiQuotes       #-}
+{-# language TypeFamilies       #-}
+{-# language GADTs       #-}
+{-# language FlexibleInstances       #-}
 
 module Model where
 
@@ -13,7 +17,7 @@ import Control.Applicative ((<|>))
 import Control.DeepSeq
 import Control.Monad (mzero)
 import Data.ByteString
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Base64 as B64
 import Data.Complex
 import Data.Text
@@ -21,10 +25,14 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Encoding
 import qualified Data.Aeson as A
 import qualified Data.Vector as V
+import Database.Groundhog
+import Database.Groundhog.TH
 import Generics.SOP
 import Generics.SOP.NFData
 import GHC.Generics
 import GHC.TypeLits
+import Text.Read
+import Text.ParserCombinators.ReadPrec
 import Codec.Picture
 
 class ToVal a where
@@ -78,7 +86,7 @@ data Type = TDouble
           | TVec
           | TTuple Type Type
           | TFunction Type Type
-  deriving (Eq, Ord, Show, GHC.Generics.Generic)
+  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 instance A.ToJSON Type
 
@@ -90,8 +98,9 @@ data Val = -- VAny    A.Value
          | VComplex PrimComplex
          | VText Text
          | VImage ModelImage
+         -- TODO: I'm having trouble getting the recursive values into groundhog
          | VList   [Val]
-         -- | VProbabilityDistribution [(Val,Double)]
+         | VProbabilityDistribution [(Val,Double)]
          | VVec1   (V.Vector Val)
          | VVec2   (V.Vector (Val, Val))
          | VVec3   (V.Vector (Val, Val, Val))
@@ -100,13 +109,13 @@ data Val = -- VAny    A.Value
                     V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val))
          -- | VClosure [(Text,Expr)] Expr
-         deriving (Eq, Show, GHC.Generics.Generic)
+         deriving (Eq, Show, Read, GHC.Generics.Generic)
 
 
 instance Generics.SOP.Generic Val
 
 newtype PrimComplex = PComplex { getComplex :: Complex Double }
-  deriving (Eq, Show, GHC.Generics.Generic, NFData)
+  deriving (Eq, Show, Read, GHC.Generics.Generic, NFData)
 
 instance A.ToJSON PrimComplex where
   toJSON (PComplex c) = A.object ["real" A..= realPart c
@@ -127,36 +136,50 @@ instance A.ToJSON Val
 
 instance A.FromJSON Val
 
-newtype ModelImage = ModelImage DynamicImage
+-- | @ModelImage@ is always a base64 encoded tiff with RGBA16 pixels
+newtype ModelImage = ModelImage (Image PixelRGBA16)
 
-instance A.ToJSON ModelImage where
-  toJSON i = case encodeModelImage i of
-    Left e  -> A.Null
-    Right v -> v
+instance Show ModelImage where
+  show = show . A.toJSON
 
-instance A.FromJSON ModelImage where
-  parseJSON v = case decodeModelImage v of
-    Left e  -> mzero
-    Right v -> return v
+instance Read ModelImage where
+  readPrec = do
+    str <- look
+    case A.decode (BL.pack str) of
+      Nothing -> pfail
+      Just mi -> return mi
 
 instance Eq ModelImage where
   a == b =
-    encodeModelImage a == encodeModelImage b
-
-instance Show ModelImage where
-  show _ = "<CBaaSModelImage>"
+    A.toJSON a == A.toJSON b
 
 instance NFData ModelImage where
   rnf (ModelImage img) = rnf img
 
-encodeModelImage :: ModelImage -> Either String A.Value
-encodeModelImage (ModelImage img) =
-  (A.String . decodeUtf8 . B64.encode . BL.toStrict)
-    <$> encodeDynamicPng img
+instance A.ToJSON ModelImage where
+  toJSON (ModelImage img) =
+    A.object ["tag"      A..= ("ModelImage" :: String)
+             ,"contents" A..= imgString]
+    where imgString = A.String . decodeUtf8
+                    . B64.encode . BL.toStrict
+                    . encodeTiff $ img
 
-decodeModelImage :: A.Value -> Either String ModelImage
-decodeModelImage (A.String (s :: Text)) =
-  fmap ModelImage $ decodeImage =<< B64.decode (encodeUtf8 s)
+instance A.FromJSON ModelImage where
+  parseJSON (A.Object o) = do
+    t <- o A..: "tag"
+    c <- o A..: "contents"
+    case (t,c) of
+      ("ModelImage" :: String, imgString) ->
+        let d = decodeTiff =<< B64.decode (encodeUtf8 imgString)
+        in case d of
+          Right (ImageRGBA16 tiff) -> return $ ModelImage tiff
+          Left  e    -> mzero
+      _ -> mzero
+
+data Tensor = Tensor
+  { tDoubleShape :: [Int]
+  , tDoubleElems :: V.Vector Double
+  }
 
 
 instance Model.ToVal Int where
@@ -165,8 +188,8 @@ instance Model.ToVal Int where
 instance Model.ToVal Double where
   toVal = VDouble
 
-instance Model.ToVal a => Model.ToVal [a] where
-  toVal i = Model.VList $ Prelude.map toVal i
+-- instance Model.ToVal a => Model.ToVal [a] where
+--   toVal i = Model.VList $ Prelude.map toVal i
 
 instance Model.ToVal Text where
   toVal = VText
@@ -180,6 +203,13 @@ instance Model.FromVal Text where
   fromVal (VText t) = t
   fromVal e = error $ "Couldn't cast to text: " ++ show e
 
-instance Model.FromVal DynamicImage where
-  fromVal (Model.VImage (Model.ModelImage i)) = i
-  fromVal x = error $ "Couldn't cast to image: " ++ show x
+-- instance Model.FromVal DynamicImage where
+--   fromVal (Model.VImage (Model.ModelImage i)) = i
+--   fromVal x = error $ "Couldn't cast to image: " ++ show x
+
+mkPersist defaultCodegenConfig [groundhog|
+  - primitive: Type
+    representation: showread
+  - primitive: Val
+    representation: showread
+|]

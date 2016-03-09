@@ -5,6 +5,7 @@ module ModelSpec where
 
 import Control.Applicative
 import Codec.Picture
+import Codec.Picture.Types
 import qualified Data.Aeson as A
 import Data.Complex
 import qualified Data.HashMap.Strict as HM
@@ -153,4 +154,4 @@ genModelImage = do
       -- , ImageCMYK8  <$> genImg (Proxy :: Proxy PixelCMYK8)  x y
       -- , ImageCMYK16 <$> genImg (Proxy :: Proxy PixelCMYK16) x y
       ]
-    return (ModelImage dynImg)
+    return (ModelImage $ promoteImage $ convertRGBA8 dynImg)
