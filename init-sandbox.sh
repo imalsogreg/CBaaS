@@ -30,3 +30,9 @@ cabal sandbox add-source deps/websockets-snap
 cabal sandbox add-source deps/servant-snap/
 
 cabal sandbox add-source deps/servant-matlab/
+
+cabal sandbox add-source ./cbaas-lib
+
+cd cbaas-lib   && cabal sandbox init --sandbox=../.cabal-sandbox && cd ..
+cd cbaas-server   && cabal sandbox init --sandbox=../.cabal-sandbox && cd ..
+cd cbaas-frontend && cabal sandbox init --sandbox=../.cabal-sandbox && cd ..

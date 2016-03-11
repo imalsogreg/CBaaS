@@ -1,11 +1,11 @@
-{-# language OverloadedStrings #-}
+{-# language GADTs             #-}
+{-# language QuasiQuotes       #-}
+{-# language TypeFamilies      #-}
 {-# language DeriveGeneric     #-}
 {-# language DeriveAnyClass    #-}
 {-# language TemplateHaskell   #-}
-{-# language QuasiQuotes       #-}
-{-# language TypeFamilies       #-}
-{-# language GADTs       #-}
-{-# language FlexibleInstances       #-}
+{-# language OverloadedStrings #-}
+{-# language FlexibleInstances #-}
 
 module RemoteFunction where
 
