@@ -30,17 +30,17 @@ import Data.UUID.V4
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Job
-import Worker
+import BrowserProfile
 import EntityID
-import Browser
+import Job
+import WorkerProfile
 
 data CBaaSF a
-  = BrowserJoin (Browser -> a)
+  = BrowserJoin (BrowserProfile -> a)
   | BrowserLeave a
-  | WorkerJoin WorkerProfile (Worker -> a)
-  | RequestWork Browser Worker Job a
-  | ReportWorkFinished Worker Job (JobResult -> a)
+  | WorkerJoin WorkerProfile (WorkerProfile -> a)
+  | RequestWork BrowserProfile WorkerProfile Job a
+  | ReportWorkFinished WorkerProfile Job (JobResult -> a)
   deriving (Functor)
 
 type CBaaS = Free CBaaSF

@@ -57,10 +57,10 @@ library
   hs-source-dirs:      src
   exposed-modules:     API
                        APIDocs
-                       Browser
+                       BrowserProfile
                        ClientGen.JS
                        ClientGen.Matlab
-                       Combo
+--                       Combo
                        EntityID
                        Job
                        Message
@@ -70,26 +70,9 @@ library
                        Semantics
                        Tag
                        User
-
-                       Worker
-                       WorkerClient
+                       WorkerProfile
   build-tools:         hsc2hs
   default-language:    Haskell2010
-
-executable pixavg
-  hs-source-dirs: exec
-  main-is:        PixAvg.hs
-  build-depends:  base
-                , wreq
-                , lens
-                , cbaas-lib
-                , JuicyPixels
-                , lens
-                , optparse-applicative
-                , servant
-                , websockets
-  default-language: Haskell2010
-  ghc-options: -threaded -rtsopts "-with-rtsopts=-N"
 
 test-suite spec
   type: exitcode-stdio-1.0

@@ -1,6 +1,6 @@
 module APIDocs where
 
-import Servant
+import Servant.API
 import qualified Servant.Docs as Docs
 
 import API

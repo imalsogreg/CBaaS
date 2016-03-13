@@ -27,18 +27,20 @@ import Job
 import Message
 import qualified Model as Model
 import Worker
+import WorkerProfile
+import BrowserProfile
 import Browser
 
 
 ------------------------------------------------------------------------------
 -- | Watch results channel and send results to the browser that
 --   initially requested the job
-fanoutResults :: TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
+fanoutResults :: TChan (EntityID Job, Maybe (BrowserProfileId), JobResult)
               -> TVar BrowserMap -> IO ()
 fanoutResults results browsers = forever $ do
   (browserMatch, res) <- atomically $ do
     (wrk,br,res) <- readTChan results
-    EntityMap brs <- readTVar  browsers
+    brs <- readTVar  browsers
     return (flip Map.lookup brs =<< br, res)
   case browserMatch of
     Nothing -> return ()
@@ -56,7 +58,7 @@ runBrowser pending browsers workers = do
   WS.sendTextData conn (A.encode $ SetBrowserID i)
   res  <- newTChanIO
   atomically $ modifyTVar browsers
-    (EntityMap . Map.insert i (Browser i conn res) . unEntityMap)
+    (Map.insert i (Browser i conn res))
 
   flip finally (disconnect i) $ do
     _ <- forkIO (process conn lastWorkers workers)
@@ -66,14 +68,14 @@ runBrowser pending browsers workers = do
   where
 
     disconnect i =
-      atomically $ modifyTVar browsers (EntityMap . Map.delete i . unEntityMap)
+      atomically $ modifyTVar browsers (Map.delete i)
 
     runChannel conn resultsChan = forever $ do
       atomically (readTChan resultsChan) >>= \r -> do
         WS.sendTextData conn (A.encode r)
 
     listen conn resultsChan = forever $ do
-      WS.receiveData conn >>= \(d :: ByteString) -> 
+      WS.receiveData conn >>= \(d :: ByteString) ->
         print "Really wasn't expecting messages here."
 
     process conn wsVar wsVar' = do
@@ -101,7 +103,7 @@ runWorker :: WS.PendingConnection
           -> TVar (Map (EntityID WorkerProfile) Worker)
           -- ^ Worker map - for self-inserting and deleting
           -> TVar BrowserMap
-          -> TChan (EntityID Job, Maybe (EntityID Browser), JobResult)
+          -> TChan (EntityID Job, Maybe (BrowserProfileId), JobResult)
           -- ^ Completion write channel
           -> IO ()
 runWorker pending wp workers browsers resultsChan = do
@@ -127,14 +129,14 @@ runWorker pending wp workers browsers resultsChan = do
                               $ Map.delete i
 
     talk :: WS.Connection
-         -> TChan (EntityID Job, Maybe (EntityID Browser), Job)
+         -> TChan (EntityID Job, Maybe (BrowserProfileId), Job)
          -> IO ()
     talk conn jobsChan = do
         (jID, brID, j) <- atomically (readTChan jobsChan)
         WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
         talk conn jobsChan
 
-    listenTillDone :: WS.Connection -> IO (EntityID Job, Maybe (EntityID Browser), JobResult)
+    listenTillDone :: WS.Connection -> IO (EntityID Job, Maybe (BrowserProfileId), JobResult)
     listenTillDone conn = do
         m <- WS.receiveData conn
         print $ "In listenTillDone, got: " ++ show m

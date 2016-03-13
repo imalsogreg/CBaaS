@@ -5,7 +5,7 @@ module ClientGen.Matlab where
 
 import Data.Proxy
 import Data.Text
-import Servant
+import Servant.API
 import Servant.Matlab
 import Servant.Matlab.Functions
 

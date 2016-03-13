@@ -20,6 +20,7 @@ library
                      , base64-bytestring
                      , basic-sop >= 0.2 && < 0.3
                      , bytestring >=0.10 && <0.11
+                     , cbaas-lib
                      , configurator
                      , containers >=0.5 && <0.6
                      , deepseq >=1.4 && <1.5
@@ -61,7 +62,9 @@ library
                      , websockets >= 0.9 && < 0.10
                      , websockets-snap >= 1.0 && < 1.1
   hs-source-dirs:      src
-  exposed-modules:     
+  exposed-modules:     Browser
+                       Worker
+                       WorkerClient
   build-tools:         hsc2hs
   default-language:    Haskell2010
 
@@ -129,7 +132,8 @@ executable pixavg
   build-depends:  base
                 , wreq
                 , lens
-                , CBaaS
+                , cbaas-lib
+                , cbaas-server
                 , JuicyPixels
                 , lens
                 , optparse-applicative
@@ -146,7 +150,8 @@ test-suite spec
   build-depends: base == 4.*, 
                  aeson,
                  basic-sop >= 0.2 && < 0.3,
-                 CBaaS,
+                 cbaas-lib,
+                 cbaas-server,
                  generics-sop,
                  hspec >= 2.2 && < 2.3, 
                  hspec-snap >= 1.0 && < 1.1,

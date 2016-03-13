@@ -14,14 +14,14 @@ import Data.UUID.V4
 import qualified Network.WebSockets as WS
 import qualified Servant.API as Servant
 import Web.HttpApiData
+import BrowserProfile
 import EntityID
 import Job
 
 data Browser = Browser
-  { bID         :: EntityID Browser
+  { bID         :: BrowserProfileId
   , bConn       :: WS.Connection
   , bJobResults :: TChan JobResult
   }
 
-type BrowserMap = EntityMap Browser
-
+type BrowserMap = Map.Map BrowserProfileId Browser

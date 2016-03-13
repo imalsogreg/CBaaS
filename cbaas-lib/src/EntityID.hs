@@ -11,10 +11,10 @@ import qualified Data.Map as Map
 import           Data.Monoid
 import           Data.Text (unpack)
 import qualified Data.UUID as UUID
-import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.FromField
-import           Database.PostgreSQL.Simple.FromRow
-import           Database.PostgreSQL.Simple.ToRow
+-- import           Database.PostgreSQL.Simple.ToField
+-- import           Database.PostgreSQL.Simple.FromField
+-- import           Database.PostgreSQL.Simple.FromRow
+-- import           Database.PostgreSQL.Simple.ToRow
 import           GHC.Generics
 import           Servant.API
 import           Web.HttpApiData
@@ -50,11 +50,11 @@ instance FromJSON (EntityID a) where
   parseJSON _ = mzero
 
 
-instance ToField (EntityID a) where
-  toField (EntityID i) = toField i
+-- instance ToField (EntityID a) where
+--   toField (EntityID i) = toField i
 
-instance FromField (EntityID a) where
-  fromField a b = EntityID <$> fromField a b
+-- instance FromField (EntityID a) where
+--   fromField a b = EntityID <$> fromField a b
 
 instance FromHttpApiData (EntityID a) where
   parseUrlPiece t = EntityID <$> note "Bad UUID decode" (UUID.fromText t)
@@ -69,11 +69,11 @@ instance FromFormUrlEncoded (EntityID a) where
       Just i  -> Right $ EntityID i
   fromFormUrlEncoded _ = Left "No query param 'id'"
 
-instance ToRow (EntityID a) where
-  toRow i = [toField i]
+-- instance ToRow (EntityID a) where
+--   toRow i = [toField i]
 
-instance FromRow (EntityID a) where
-  fromRow = field
+-- instance FromRow (EntityID a) where
+--   fromRow = field
 
 note :: e -> Maybe a -> Either e a
 note e Nothing  = Left e

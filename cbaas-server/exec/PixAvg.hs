@@ -13,5 +13,5 @@ main = runWorker $ \x -> do
   print r
   return r
 
-compute :: DynamicImage -> Int
-compute i = dynamicMap imageWidth i * dynamicMap imageHeight i
+compute :: Image PixelRGBA16 -> Int
+compute i = imageWidth i * imageHeight i

@@ -100,7 +100,7 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     a   <- nestSnaplet "auth" auth $
              initPostgresAuth sess p
     w   <- liftIO $ newTVarIO $ Data.Map.empty
-    b   <- liftIO $ newTVarIO $ EntityMap Data.Map.empty
+    b   <- liftIO $ newTVarIO $ Data.Map.empty
     j   <- liftIO newBroadcastTChanIO
     r   <- liftIO newTChanIO -- newBroadcastTChanIO
     addRoutes routes

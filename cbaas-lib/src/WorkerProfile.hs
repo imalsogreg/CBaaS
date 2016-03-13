@@ -7,7 +7,7 @@
 {-# language FlexibleInstances #-}
 {-# language TypeFamilies #-}
 
-module Worker where
+module WorkerProfile where
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -23,7 +23,7 @@ import Data.UUID
 import qualified Data.UUID as UUID
 import Data.UUID.V4
 import GHC.Generics
-import qualified Network.WebSockets as WS
+-- import qualified Network.WebSockets as WS
 import Servant.API
 import URI.ByteString
 import Web.HttpApiData
@@ -32,40 +32,31 @@ import Database.Groundhog.Core
 import Database.Groundhog.Generic
 import Database.Groundhog.TH
 
-import Browser
+import BrowserProfile
 import EntityID
 import Job
 import Model
 import RemoteFunction
 
-data Worker = Worker
-  { _wProfile :: WorkerProfile
-  , _wID      :: EntityID WorkerProfile
-  , _wConn    :: WS.Connection
-  , _wJobQueue :: TChan (EntityID Job, Maybe (EntityID Browser), Job)
-  } deriving (Generic)
-
-
 type WorkerProfileMap = EntityMap WorkerProfile
+type WorkerProfileId  = EntityID  WorkerProfile
 
 
 data WorkerProfile = WorkerProfile
   { wpName         :: WorkerName
   , wpFunctionName :: Text
-  , wpTags         :: [Text]
   } deriving (Eq, Ord, Show)
 
 instance ToJSON WorkerProfile where
-  toJSON (WorkerProfile (WorkerName n) f t) =
+  toJSON (WorkerProfile (WorkerName n) f) =
     A.object ["name" .= n
              ,"function" .= f
-             ,"tags" .= t]
+             ]
 
 instance FromJSON WorkerProfile where
   parseJSON (A.Object o) = WorkerProfile
     <$> o .: "name"
     <*> o .: "function"
-    <*> o .: "tags"
 
 instance FromHttpApiData WorkerName where
   parseUrlPiece = Right . WorkerName
@@ -87,7 +78,6 @@ parseWorkerProfile q = do
   fn <- note "No WorkerProfile function" $ lookup "function" ps
   return $ WorkerProfile (WorkerName $ decodeUtf8 nm)
            (decodeUtf8 fn)
-           (map decodeUtf8 . map snd . filter ((== "tag") . fst) $ ps)
   where ps = queryPairs q
 
 -- TODO: fix field names, to snake case

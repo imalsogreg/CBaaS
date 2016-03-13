@@ -16,12 +16,12 @@ import           Data.UUID     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
                                ,Capture, ReqBody, Raw, FormUrlEncoded
                                ,QueryParam, QueryParams)
-import           Snap.Snaplet.Auth
+-- import           Snap.Snaplet.Auth
 import           EntityID
 import           Permissions
-import           Worker
+import           WorkerProfile
 import           User
-import           Browser
+import           BrowserProfile
 import           Job
 
 
@@ -34,12 +34,11 @@ import           Job
 type API1 = "user"        :> UserAPI
   :<|> "worker"           :> Get '[JSON] WorkerProfileMap
   :<|> "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
-                 :> QueryParam "browser-id" (EntityID Browser)
+                 :> QueryParam "browser-id" (BrowserProfileId)
                  :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
   :<|> "browse"  :> Raw
   :<|> "work"    :> QueryParam  "name"     WorkerName
                  :> QueryParam  "function" Text
-                 :> QueryParams "tags"     Text -- TODO Make a Tag type
                  :> Raw
   -- :<|> "work"    :> QueryParam "worker-profile" WorkerProfile :> Raw
 
@@ -49,12 +48,12 @@ type API1 = "user"        :> UserAPI
 --   Clients and this sites pages use this API for user and session management
 type UserAPI =
        "login"       :> ReqBody '[FormUrlEncoded, JSON] LoginInfo
-                     :> Post '[JSON] AuthUser
+                     :> Post '[JSON] Int -- AuthID
 
   :<|> "register"    :> ReqBody '[FormUrlEncoded, JSON] RegisterInfo
-                     :> Post '[JSON] AuthUser
+                     :> Post '[JSON] Int -- AuthID
 
-  :<|> "currentuser" :> Get '[JSON] (Maybe AuthUser)
+  :<|> "currentuser" :> Get '[JSON] (Maybe Int) -- AuthID
 
   :<|> "logout"      :> Post '[JSON] ()
 

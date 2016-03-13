@@ -203,9 +203,9 @@ instance Model.FromVal Text where
   fromVal (VText t) = t
   fromVal e = error $ "Couldn't cast to text: " ++ show e
 
--- instance Model.FromVal DynamicImage where
---   fromVal (Model.VImage (Model.ModelImage i)) = i
---   fromVal x = error $ "Couldn't cast to image: " ++ show x
+instance Model.FromVal (Image PixelRGBA16) where
+  fromVal (Model.VImage (Model.ModelImage i)) = i
+  fromVal x = error $ "Couldn't cast to image: " ++ show x
 
 mkPersist defaultCodegenConfig [groundhog|
   - primitive: Type

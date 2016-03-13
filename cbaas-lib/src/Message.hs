@@ -6,10 +6,10 @@ module Message where
 import qualified Data.Aeson as A
 import           GHC.Generics
 ------------------------------------------------------------------------------
+import           BrowserProfile
 import           EntityID
-import           Browser
 import           Job
-import           Worker
+import           WorkerProfile
 
 ------------------------------------------------------------------------------
 -- | 'BrowserMessage's go between browser and CBaaS server
@@ -23,7 +23,7 @@ data BrowserMessage = WorkerJoined (EntityID WorkerProfile) WorkerProfile
                     | JobStatusUpdate (EntityID Job, JobResult)
                       -- ^ Informing the browser of a status-update on a
                       --   job
-                    | SetBrowserID (EntityID Browser)
+                    | SetBrowserID (BrowserProfileId)
                       -- ^ Inform the browser of its ID number
                       --   TODO: should this be asynchronous information?
                       --   TODO: Does it need to be validated or enforced
@@ -36,7 +36,7 @@ instance A.FromJSON BrowserMessage
 ------------------------------------------------------------------------------
 -- | 'WorkerMessage's go between CBaaS server and online workers
 data WorkerMessage = JobRequested
-                     (EntityID Job, Maybe (EntityID Browser), Job)
+                     (EntityID Job, Maybe (BrowserProfileId), Job)
                      -- ^ Informs a worker that a user has requested a job.
                      --   CBaaS server is
                      --   responsible for ensuring that job requests are
@@ -44,13 +44,13 @@ data WorkerMessage = JobRequested
                      --   and the worker's willingness to do jobs for
                      --   various sorts of users based on group membership
                    | WorkerStatusUpdate
-                     (EntityID Job, Maybe (EntityID Browser), JobResult)
+                     (EntityID Job, Maybe (BrowserProfileId), JobResult)
                      -- ^ Informs the server that partial progress has been
                      --   made on a job.
                      --   TODO: Can/should we enforce the type
                      --         of incremental results?
                    | WorkerFinished
-                     (EntityID Job, Maybe (EntityID Browser), JobResult)
+                     (EntityID Job, Maybe (BrowserProfileId), JobResult)
                      -- ^ Informs the server that the worker has finished,
                      --   including the 'JobResult' data
   deriving (Eq, Show, Generic)
