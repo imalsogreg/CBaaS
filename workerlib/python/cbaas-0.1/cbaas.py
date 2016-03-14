@@ -8,6 +8,8 @@ import skimage.io
 import tempfile
 from os import remove
 from json import dumps, loads
+import logging
+import time
 
 logging.basicConfig() # TODO is this the right time to run this?
 
@@ -31,7 +33,7 @@ def package_image_binary(binary_blob):
 class Listener:
     """A work listener for attaching to CBaaS servers"""
 
-    def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False):
+    def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False, restart=True):
 
         ws = websocket.WebSocketApp(host + '/api1/work?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
@@ -44,6 +46,11 @@ class Listener:
 
         print "Init about to run_forever"
         ws.run_forever()
+        
+        while(restart):
+          print "Disconnected. Reconnect in 5 seconds..."
+          time.sleep(5)
+          ws.run_forever()
         print "Init finished run_forever"
 
 def _handle_ping(ws, payload):
@@ -57,12 +64,16 @@ def _handle_pong(ws,payload):
     print "CALLBACK PONG"
 
 def _handle_message(ws, msgstr, on_job):
-    print "(cbaas) HANDLE_MESSAGE"
-    print msgstr
+    print ("(cbaas) HANDLE_MESSAGE")
+
     msg = loads(msgstr)
+
     msg_arg = _message_argument(msg)
+
     v = _decode_cbaas_value(msg_arg)
+
     r = on_job(v)
+
     cbaas_r = _encode_cbaas_value(r)
     msg_r = {'tag':'WorkerFinished',
              'contents':[
@@ -71,9 +82,7 @@ def _handle_message(ws, msgstr, on_job):
                {'job':msg['contents'][0],'value':cbaas_r}
              ]
             }
-    print "ABOUT TO SEND"
     ws.send(dumps(msg_r))
-    print "SUCCESSFULL SEND"
 
 def _decode_cbaas_value(kv):
     """Convert a CBaaS JSON-encoded value into a Python value
@@ -93,9 +102,12 @@ def _decode_cbaas_value(kv):
     elif k == 'VList':
         return map( _decode_cbaas_value, v )
     elif k == 'VImage':
-        bytestring = base64.b64decode( v )
-        img = _load_through_tmp_image(bytestring)
-        return img
+        if v['tag'] == 'ModelImage':
+            bytestring = base64.b64decode( v['contents'] )
+            img = _load_through_tmp_image(bytestring)
+            return img
+        else:
+            raise ValueError('Improperly formatted VImage', kv)
 
 
 def _encode_cbaas_value(v):

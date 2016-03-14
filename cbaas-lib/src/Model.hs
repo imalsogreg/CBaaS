@@ -136,8 +136,8 @@ instance A.ToJSON Val
 
 instance A.FromJSON Val
 
--- | @ModelImage@ is always a base64 encoded tiff with RGBA16 pixels
-newtype ModelImage = ModelImage (Image PixelRGBA16)
+-- | @ModelImage@ is always a base64 encoded tiff with RGBA8 pixels
+newtype ModelImage = ModelImage (Image PixelRGBA8)
 
 instance Show ModelImage where
   show = show . A.toJSON
@@ -170,11 +170,12 @@ instance A.FromJSON ModelImage where
     c <- o A..: "contents"
     case (t,c) of
       ("ModelImage" :: String, imgString) ->
-        let d = decodeTiff =<< B64.decode (encodeUtf8 imgString)
+        let d = decodeImage =<< B64.decode (encodeUtf8 imgString)
         in case d of
-          Right (ImageRGBA16 tiff) -> return $ ModelImage tiff
-          Left  e    -> mzero
+          Right di  -> return $ ModelImage (convertRGBA8 di)
+          Left  e    -> error $ "DECODING FAILURE: " ++ e -- mzero
       _ -> mzero
+
 
 data Tensor = Tensor
   { tDoubleShape :: [Int]
@@ -203,7 +204,7 @@ instance Model.FromVal Text where
   fromVal (VText t) = t
   fromVal e = error $ "Couldn't cast to text: " ++ show e
 
-instance Model.FromVal (Image PixelRGBA16) where
+instance Model.FromVal (Image PixelRGBA8) where
   fromVal (Model.VImage (Model.ModelImage i)) = i
   fromVal x = error $ "Couldn't cast to image: " ++ show x
 

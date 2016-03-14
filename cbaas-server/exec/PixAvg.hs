@@ -13,5 +13,5 @@ main = runWorker $ \x -> do
   print r
   return r
 
-compute :: Image PixelRGBA16 -> Int
+compute :: Image PixelRGBA8 -> Int
 compute i = imageWidth i * imageHeight i

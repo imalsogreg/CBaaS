@@ -83,10 +83,13 @@ function callPicFun(){
     console.log(functions[fName]);
     if (functions[fName]) {
         var workersForFn = functions[fName];
-        var pixData = getImgBytes();
-        var fArg  = {};
-        fArg.tag = "VImage";
-        fArg.contents = pixData.substring(pixData.indexOf(',')+1);
+        // var pixData = getImgBytes();
+        // var fArg  = {};
+        // fArg = urlDataToVal(pixdata);
+        // fArg.tag = "VImage";
+        // fArg.contents = pixData.substring(pixData.indexOf(',')+1);
+        var fArg = urlDataToVal( getImgBytes() );
+        console.log(fArg);
         var url = 'api1/callfun?worker-id=' + workersForFn[0];
         if (mybrowserid != undefined) {
             url = url + '&browser-id=' + mybrowserid;
@@ -103,6 +106,15 @@ function callPicFun(){
                 'dataType':'json',
                 'method':'Post'});
     }
+}
+
+function urlDataToVal(urlBytes){
+    var pixdata = urlBytes.substring(urlBytes.indexOf(',')+1);
+    return {'tag':'VImage',
+            'contents':{'tag':'ModelImage',
+                        'contents': pixdata
+                       }
+           };
 }
 
 function getImgBytes(){
