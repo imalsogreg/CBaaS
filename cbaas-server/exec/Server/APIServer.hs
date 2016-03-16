@@ -24,7 +24,6 @@ import Data.Text
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.UUID.V4
-import Database.PostgreSQL.Simple.Types
 import Network.WebSockets
 import Network.WebSockets.Snap
 import Servant.API
@@ -32,7 +31,6 @@ import Servant.Server
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
-import Snap.Snaplet.PostgresqlSimple
 import Text.Read
 import API
 import EntityID
@@ -61,7 +59,7 @@ serverAuth :: Server UserAPI AppHandler
 serverAuth =
   let loginServer li = with auth $ do
         u <- loginByUsername (_liUsername li)
-                             (ClearText . encodeUtf8 $ _liPassword li)
+                             (encodeUtf8 $ _liPassword li)
                              (_liRemember li)
         either error return (getUserId =<< first show u)
 
@@ -83,8 +81,8 @@ serverAuth =
   in loginServer :<|> registerServer :<|> currentUserServer :<|> logoutServer
 
 
-crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI (EntityID v) v) AppHandler
-crudServer p = undefined -- TODO redo this for Groundhoge
+-- crudServer :: forall v.Crud v => Proxy v -> Server (CrudAPI (EntityID v) v) AppHandler
+-- crudServer p = undefined -- TODO redo this for Groundhoge
   -- let getAll   = query_ (getAllQuery p)
 
   --     get i    = do
@@ -118,11 +116,15 @@ listOnlineWorkers = do
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   return (EntityMap $ Map.map _wProfile wrks)
 
-callfun
-  :: Server (QueryParam "worker-id" WorkerProfileId
-             :> QueryParam "browser-id" BrowserProfileId
-             :> ReqBody '[JSON] Job
-             :> Post '[JSON] (EntityID Job)) AppHandler
+-- callfun
+--   :: Server (QueryParam "worker-id" WorkerProfileId
+--              :> QueryParam "browser-id" BrowserProfileId
+--              :> ReqBody '[JSON] Job
+--              :> Post '[JSON] (EntityID Job)) AppHandler
+callfun :: (Maybe WorkerProfileId) 
+        -> (Maybe BrowserProfileId) 
+        -> Job 
+        -> AppHandler (EntityID Job)
 callfun (Just wID :: Maybe WorkerProfileId) bID job = do
   wrks :: Map.Map (EntityID WorkerProfile) Worker <-
     liftIO . atomically . readTVar =<< gets _workers
@@ -132,6 +134,22 @@ callfun (Just wID :: Maybe WorkerProfileId) bID job = do
       jID  <- EntityID <$> liftIO nextRandom
       liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)
       return jID
+
+
+-- resolveFunction :: Maybe FunctionName
+--                 -> Maybe Type
+--                 -> [Tag]
+--                 -> Bool
+--                 -> AppHandler RemoteFunction
+-- resolveFunction Nothing _ _ _ _ = err300 "Function name is mandatory"
+-- resolveFunction (Just fName) fType necessaryTags strictlyOne = do
+--   rs     <- select funQueryConditions
+--   tags   <- select (FunctionTagFunctionField ==. fName)
+  
+--   where funQueryConditions Nothing  = FunctionNameField ==. fName
+--         funQueryConditions (Just t) = FunctionNameField ==. fName &&.
+--                                       FunctionTypeField ==. t
+
 
 serveBrowserWS :: Server Raw AppHandler
 serveBrowserWS = do

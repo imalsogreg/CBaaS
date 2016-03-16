@@ -17,7 +17,6 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Map
 import qualified Data.Map as Map
 import Data.UUID.V4
-import Snap.Snaplet.PostgresqlSimple
 import System.IO
 import qualified Network.WebSockets as WS
 import URI.ByteString

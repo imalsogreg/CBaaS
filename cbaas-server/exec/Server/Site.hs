@@ -14,31 +14,41 @@ import           Control.Applicative
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
+import           Control.Monad (join)
 import           Control.Monad.IO.Class
+import           Control.Monad.Logger
 import           Data.ByteString (ByteString)
+import qualified Data.Configurator as C
 import           Data.Map (empty)
 import           Data.Map.Syntax ((##))
 import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text as T
+import           Data.Text.Encoding
+import qualified Database.Groundhog as G
+import           Database.Groundhog
+import           Database.Groundhog.Core
+import           Database.Groundhog.Postgresql
 import           Servant.API hiding (GET, POST, PUT, DELETE)
 import           Servant.Server
 import           Servant.Server.Internal.SnapShims (applicationToSnap)
 import           Snap.Core
 import           Snap.Snaplet
 import           Snap.Snaplet.Auth
-import           Snap.Snaplet.Auth.Backends.PostgresqlSimple
 import           Snap.Snaplet.Heist
-import           Snap.Snaplet.PostgresqlSimple
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
+import           Snap.Snaplet.PostgresqlSimple (getConnectionString)
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           API
 -- import           Combo
 import           EntityID
+import           RemoteFunction
+import           WorkerProfile
 import           Server.Application
 import           Server.APIServer
+import           Server.GroundhogAuth
 import           Server.WebSocketServer
 
 
@@ -93,16 +103,31 @@ routes = [ ("login"   , with auth handleLoginSubmit)
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     cfg <- getSnapletUserConfig
-    p   <- nestSnaplet "db" db pgsInit
+    -- p   <- nestSnaplet "db" db pgsInit
+    cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
+    -- p <- nestSnaplet "pgs" pgs $ pgsInit' cfg
+
+    connstr <- liftIO $ decodeUtf8 <$> getConnectionString cfg
+    p   <- liftIO $ withPostgresqlPool (T.unpack connstr) 3 return
+    liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) p)
+
     h   <- nestSnaplet "" heist $ heistInit "templates"
     s   <- nestSnaplet "sess" sess $
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
     a   <- nestSnaplet "auth" auth $
-             initPostgresAuth sess p
+             initGroundhogAuth sess p
     w   <- liftIO $ newTVarIO $ Data.Map.empty
     b   <- liftIO $ newTVarIO $ Data.Map.empty
     j   <- liftIO newBroadcastTChanIO
     r   <- liftIO newTChanIO -- newBroadcastTChanIO
+    
     addRoutes routes
     liftIO $ forkIO $ fanoutResults r b
     return $ App h p s a w b j r
+
+migrateDB :: (MonadIO m, PersistBackend m) => m ()
+migrateDB = runMigration $ do
+      G.migrate (undefined :: Function)
+      -- G.migrate (undefined :: FunctionTag)
+      G.migrate (undefined :: WorkerProfile)
+      --migrate (undefined :: JobResult) -- Results cache

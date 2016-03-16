@@ -13,3 +13,6 @@
 [submodule "deps/groundhog"]
 	path = deps/groundhog
 	url = http://github.com/imalsogreg/groundhog
+[submodule "deps/snap"]
+	path = deps/snap
+	url = http://github.com/snapframework/snap
