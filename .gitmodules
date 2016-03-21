@@ -16,3 +16,6 @@
 [submodule "deps/snap"]
 	path = deps/snap
 	url = http://github.com/snapframework/snap
+[submodule "deps/yaml-ghcjs"]
+	path = deps/yaml-ghcjs
+	url = https://github.com/imalsogreg/yaml-ghcjs

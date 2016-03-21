@@ -1,4 +1,4 @@
-module Function where
+module Frontend.Function where
 
 import Reflex
 import Reflex.Dom
