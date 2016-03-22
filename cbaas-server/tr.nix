@@ -14,7 +14,7 @@ reflex-platform.ghc.override {
      groundhog-th        = (self.callPackage ../deps/groundhog/groundhog-th { compilername = "ghc"; });
      servant-js = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-js) {});
      servant-foreign = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-foreign) {});
-     servant-server = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-server) {});
+     servant-server = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-server) {});
      servant-blaze = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-blaze) {});
      servant-matlab = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-matlab) {});
 
