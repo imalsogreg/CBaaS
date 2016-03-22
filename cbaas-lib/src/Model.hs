@@ -34,6 +34,7 @@ import GHC.TypeLits
 import Text.Read
 import Text.ParserCombinators.ReadPrec
 import Codec.Picture
+import Utils
 
 class ToVal a where
   toVal :: a -> Val
@@ -66,7 +67,7 @@ class FromVal a where
 
 -- TODO, how do you write a language?
 data Expr = Expr A.Value
-  deriving (Eq, Show)
+  deriving (Eq, Show, Read)
 
 instance NFData Expr where
   rnf (Expr v) = rnf v
@@ -92,9 +93,7 @@ instance A.ToJSON Type
 
 instance A.FromJSON Type
 
-data Val = -- VAny    A.Value
-        --  |
-           VDouble Double
+data Val = VDouble Double
          | VComplex PrimComplex
          | VText Text
          | VImage ModelImage
@@ -108,7 +107,7 @@ data Val = -- VAny    A.Value
          | VMat2C  (V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val))
-         -- | VClosure [(Text,Expr)] Expr
+         | VClosure [(Text,Expr)] Expr
          deriving (Eq, Show, Read, GHC.Generics.Generic)
 
 

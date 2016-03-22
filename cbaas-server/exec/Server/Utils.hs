@@ -101,10 +101,4 @@ instance PrimitivePersistField U.UUID where
   toPrimitivePersistValue p u = toPrimitivePersistValue p (show u)
   fromPrimitivePersistValue p x = read (fromPrimitivePersistValue p x)
 
-ghCodeGen :: CodegenConfig
-ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }
-
-ghConfig :: CodegenConfig
-ghConfig = defaultCodegenConfig
-    { namingStyle = lowerCaseSuffixNamingStyle }
 
