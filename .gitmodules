@@ -19,3 +19,6 @@
 [submodule "deps/yaml-ghcjs"]
 	path = deps/yaml-ghcjs
 	url = https://github.com/imalsogreg/yaml-ghcjs
+[submodule "deps/servant"]
+	path = deps/servant
+	url = https://github.com/haskell-servant/servant

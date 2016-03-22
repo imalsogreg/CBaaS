@@ -9,13 +9,13 @@ reflex-platform.ghc.override {
      # reflex-dom-contrib  = (self.callPackage ../deps/reflex-dom-contrib { compilername = "ghc"; });
      # reflex-dom-contrib  = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/reflex-dom-contrib) {});
      servant-snap        = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap) {});
-     servant             = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant) {});
-     servant-docs        = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-docs) {});
+     servant             = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant) {});
+     servant-docs        = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-docs) {});
      groundhog-th        = (self.callPackage ../deps/groundhog/groundhog-th { compilername = "ghc"; });
-     servant-js = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-js) {});
-     servant-foreign = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-foreign) {});
-     servant-server = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-server) {});
-     servant-blaze = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/servant/servant-blaze) {});
+     servant-js = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-js) {});
+     servant-foreign = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-foreign) {});
+     servant-server = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-server) {});
+     servant-blaze = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-blaze) {});
      servant-matlab = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-matlab) {});
 
      websockets-snap = (self.callPackage (reflex-platform.cabal2nixResult ../deps/websockets-snap) {});
