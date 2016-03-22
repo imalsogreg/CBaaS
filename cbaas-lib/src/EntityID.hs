@@ -15,6 +15,7 @@ import qualified Data.UUID as UUID
 -- import           Database.PostgreSQL.Simple.FromField
 -- import           Database.PostgreSQL.Simple.FromRow
 -- import           Database.PostgreSQL.Simple.ToRow
+import           Database.Groundhog.TH
 import           GHC.Generics
 import           Servant.API
 import           Web.HttpApiData
@@ -78,3 +79,6 @@ instance FromFormUrlEncoded (EntityID a) where
 note :: e -> Maybe a -> Either e a
 note e Nothing  = Left e
 note _ (Just a) = Right a
+
+ghCodeGen :: CodegenConfig
+ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }

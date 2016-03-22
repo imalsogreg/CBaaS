@@ -26,7 +26,7 @@ import Data.Text.Encoding
 import qualified Data.Aeson as A
 import qualified Data.Vector as V
 import Database.Groundhog
-import Database.Groundhog.TH
+import Database.Groundhog.TH hiding (defaultCodegenConfig)
 import Generics.SOP
 import Generics.SOP.NFData
 import GHC.Generics
@@ -208,7 +208,7 @@ instance Model.FromVal (Image PixelRGBA8) where
   fromVal (Model.VImage (Model.ModelImage i)) = i
   fromVal x = error $ "Couldn't cast to image: " ++ show x
 
-mkPersist defaultCodegenConfig [groundhog|
+mkPersist ghCodeGen [groundhog|
   - primitive: Type
     representation: showread
   - primitive: Val
