@@ -21,6 +21,8 @@ library
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9
+                     , aeson
+                     , bytestring
                      , cbaas-lib
                      , containers
                      , groundhog-th >= 0.7.1
