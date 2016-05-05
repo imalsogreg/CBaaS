@@ -36,4 +36,4 @@ runWorker f = WS.runClient "localhost" 9160 "/worker?name=test&function=size" $
                                 (JobResult (Model.toVal r) i)))
         Just x -> print $ "Good decode for unexpected message: " ++ show x
         Nothing -> print $  fmap (("Bad decode of " ++) . unpack ) t
-        x -> print $ "Got non-text message: " ++ show x
+        -- x -> print $ "Got non-text message: " ++ show x

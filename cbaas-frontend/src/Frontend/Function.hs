@@ -20,6 +20,8 @@ import Message
 import Model
 import RemoteFunction
 import WorkerProfile
+import BrowserProfile
+import EntityID
 
 
 ------------------------------------------------------------------------------
@@ -76,25 +78,26 @@ funListPredicate s k v
 functionPage :: forall t m.MonadWidget t m => m ()
 functionPage = mdo
   pb <- getPostBuild
-  ws <- webSocket "/api/browser" (WebSocketConfig wsSends)
+  ws <- webSocket "/api1/browse" (WebSocketConfig wsSends)
   let msg = decoded (_webSocket_recv ws)
   let x  = msg :: Event t BrowserMessage
 
   wsSends <- return never -- TODO Send data sometimes?
 
-  browserId <- holdDyn 0 $ fforMaybe msg $ \case
+  browserId <- holdDyn Nothing $ ffor msg $ \case
     SetBrowserID i -> Just i
     _              -> Nothing
 
-  workers0 :: Event t WMap <- fmapMaybe id <$> getAndDecode ("/api/worker" <$ pb)
-  let workersInit :: Event t (WMap -> WMap) = ffor workers0 $ \(ws) -> undefined
-        -- foldl' (\(k,v) m -> Map.insert k v m) mempty (Map.toList ws)
+  workers0 :: Event t WorkerProfileMap <- fmapMaybe id <$> getAndDecode ("/api1/worker" <$ pb)
+  let workersInit :: Event t (WorkerProfileMap -> WorkerProfileMap) = ffor workers0 $ \(EntityMap ws) -> const . EntityMap $
+        foldl' (\m (k,v) -> Map.insert k v m) mempty (Map.toList ws)
 
-  workersModify :: Event t (WMap -> WMap) <- fforMaybe msg $ \case
-    WorkerJoined wId wProfile -> Just (Map.insert wId wProfile)
-    WorkerLeft wId            -> Just (Map.delete wId)
-  workers :: Dynamic t WMap <- _ -- foldDyn ($) mempty (leftmost [workersInit, workersModify])
-  nWorkers :: Dynamic t Int <- mapDyn F.length workers
+  let workersModify :: Event t (WorkerProfileMap -> WorkerProfileMap) = fforMaybe msg $ \case
+        WorkerJoined wId wProfile -> Just (EntityMap . Map.insert wId wProfile . unEntityMap)
+        WorkerLeft wId            -> Just (EntityMap . Map.delete wId . unEntityMap)
+
+  workers :: Dynamic t WorkerProfileMap <- foldDyn ($) (EntityMap mempty) (leftmost [workersInit, workersModify])
+  nWorkers :: Dynamic t Int <- mapDyn (F.length . unEntityMap) workers
 
   -- elClass "div" "function-page" $ do
   --   functionListing workers (constDyn 0)

@@ -4,17 +4,15 @@
 
 module EntityID where
 
-import           Control.Monad (mzero)
-import qualified Data.Aeson as A
-import           Data.Aeson (FromJSON, ToJSON)
-import qualified Data.Map as Map
+import           Control.Monad         (mzero)
+import qualified Data.Aeson            as A
+import qualified Data.Aeson.Parser     as A
+import           Data.Aeson            (FromJSON, ToJSON)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.Map              as Map
 import           Data.Monoid
-import           Data.Text (unpack)
-import qualified Data.UUID as UUID
--- import           Database.PostgreSQL.Simple.ToField
--- import           Database.PostgreSQL.Simple.FromField
--- import           Database.PostgreSQL.Simple.FromRow
--- import           Database.PostgreSQL.Simple.ToRow
+import           Data.Text             (Text, unpack)
+import qualified Data.UUID             as UUID
 import           Database.Groundhog.TH
 import           GHC.Generics
 import           Servant.API
@@ -32,6 +30,16 @@ newtype EntityMap a = EntityMap { unEntityMap :: Map.Map (EntityID a) a }
 instance ToJSON a => ToJSON (EntityMap a) where
   toJSON (EntityMap m) = A.toJSON (Map.mapKeys (UUID.toText . unID) m)
 
+instance FromJSON a => FromJSON (EntityMap a) where
+  parseJSON (A.Object o) =
+    fmap (EntityMap . Map.fromList) $
+    traverse (\(k,v) -> ((,) . EntityID) <$> parseUUID k <*> A.parseJSON v)
+    (HM.toList o)
+
+-- parseUUID :: Text -> A.Parser UUID.UUID
+parseUUID t = case UUID.fromText t of
+  Just u  -> return u
+  Nothing -> mzero
 
 ------------------------------------------------------------------------------
 -- | Convert an ID to JSON. Construct a JSON String value from the

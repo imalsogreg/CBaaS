@@ -34,6 +34,7 @@ import GHC.TypeLits
 import Text.Read
 import Text.ParserCombinators.ReadPrec
 import Codec.Picture
+import EntityID
 
 class ToVal a where
   toVal :: a -> Val
@@ -58,25 +59,16 @@ class FromVal a where
 -- data Array int a where
 --   Array :: 1 -> [a] -> Array 1 a
 
--- data Expr ty where
---   Lit    :: ty -> TermLit -> Expr ty
---   Lambda :: Variable ty -> Expr ty -> Expr ty
---   App    :: Lambda ty -> Expr ty -> Expr ty
+data Expr = ELit    Val
+          | ELambda Text  Expr
+          | EApp    Expr  Expr
+          deriving (Eq, Ord, Show, GHC.Generics.Generic)
 
+instance A.ToJSON Expr
+instance A.FromJSON Expr
 
--- TODO, how do you write a language?
-data Expr = Expr A.Value
-  deriving (Eq, Show)
+instance NFData Expr
 
-instance NFData Expr where
-  rnf (Expr v) = rnf v
-
-instance A.ToJSON Expr where
-  toJSON (Expr v) = v
-
-instance A.FromJSON Expr where
-  parseJSON (A.Object v) = pure (Expr $ A.Object v)
-  parseJSON _            = mzero
 
 data Type = TDouble
           | TComplex
@@ -109,13 +101,19 @@ data Val = -- VAny    A.Value
                     V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val))
          -- | VClosure [(Text,Expr)] Expr
-         deriving (Eq, Show, Read, GHC.Generics.Generic)
+         deriving (Eq, Show, Ord, Read, GHC.Generics.Generic)
 
 
 instance Generics.SOP.Generic Val
 
 newtype PrimComplex = PComplex { getComplex :: Complex Double }
   deriving (Eq, Show, Read, GHC.Generics.Generic, NFData)
+
+instance Ord PrimComplex where
+  compare (PComplex p) (PComplex p')
+    | realPart p > realPart p' = GT
+    | realPart p < realPart p' = LT
+    | otherwise = compare (imagPart p) (imagPart p')
 
 instance A.ToJSON PrimComplex where
   toJSON (PComplex c) = A.object ["real" A..= realPart c
@@ -131,9 +129,7 @@ instance A.FromJSON PrimComplex where
 instance NFData Val where
   rnf = grnf
 
-
 instance A.ToJSON Val
-
 instance A.FromJSON Val
 
 -- | @ModelImage@ is always a base64 encoded tiff with RGBA8 pixels
@@ -152,6 +148,9 @@ instance Read ModelImage where
 instance Eq ModelImage where
   a == b =
     A.toJSON a == A.toJSON b
+
+instance Ord ModelImage where
+  compare a b = compare (A.encode a) (A.encode b)
 
 instance NFData ModelImage where
   rnf (ModelImage img) = rnf img

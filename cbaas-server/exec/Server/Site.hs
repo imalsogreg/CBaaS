@@ -95,6 +95,7 @@ routes = [ ("login"   , with auth handleLoginSubmit)
          , ("new_user", with auth handleNewUser)
          , ("api1"    , applicationToSnap (serve (Proxy :: Proxy API1) serverAPI))
          , (""        , serveDirectory "static" )
+         , (""        , render "function") -- TODO
          ]
 
 

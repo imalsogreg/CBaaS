@@ -34,7 +34,7 @@ import           Job
 type API1 = "user"        :> UserAPI
   :<|> "worker"           :> Get '[JSON] WorkerProfileMap
   :<|> "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
-                 :> QueryParam "browser-id" (BrowserProfileId)
+                 :> QueryParam "browser-id" BrowserProfileId
                  :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
   :<|> "browse"  :> Raw
   :<|> "work"    :> QueryParam  "name"     WorkerName
