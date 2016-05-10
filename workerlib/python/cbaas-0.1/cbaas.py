@@ -1,5 +1,6 @@
 import base64
 import numpy
+import requests as requests
 import websocket
 import logging
 import imghdr
@@ -11,33 +12,30 @@ from json import dumps, loads
 import logging
 import time
 
-logging.basicConfig() # TODO is this the right time to run this?
+# namespaces (numpy as np)
+# context managers
+# own Exception class
+# don't catch all exceptions
+# beware of lambdas
 
-def package_image_binary(binary_blob):
-    """Create a temporary file for an image and return its filename.
-       The file will be created in your system's temp directory,
-       but you should probably delete it after use anyway.
-    """
-    mimetype = imghdr.what('',binary_blob)
-    print "NEW VERSION2"
-    if mimetype == None:
-        raise Exception('Failed to identify image format for binary.') 
-    else:
-        t  = tempfile.mkstemp(suffix=('.' + mimetype))
-        tf1 = open(t[1],'wb')
-        tf1.write(binary_blob)
-        tf1.close()
-        print t[1]
-        return t[1]
+logging.basicConfig()
+
+class DecodeError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
 
 class Listener:
     """A work listener for attaching to CBaaS servers"""
 
-    def __init__(self, on_job, host="ws://localhost", port="9160", key=None, verbose=False, restart=True):
-
-        ws = websocket.WebSocketApp(host + '/api1/work?name=test&function=fix',
+    def __init__(self, on_job, domain="localhost", port="9160", key=None, verbose=False, restart=True):
+        self._workerID = None
+        self._wsHost     = "ws://" + domain
+        self._httpHost   = "http://" + domain
+        self._on_job   = on_job
+        _wsUrl = self._wsHost + '/api1/work?name=test&function=fix'
+        ws = websocket.WebSocketApp(self._wsHost + '/api1/work?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
-                                    on_message = lambda ws, msg: _handle_message(ws,msg,on_job), 
+                                    on_message = self._handle_message,
                                     on_error   = show_err,
                                     on_open    = show_open,
                                     on_ping    = lambda ws, payload: _handle_ping(ws, payload),
@@ -46,43 +44,101 @@ class Listener:
 
         print "Init about to run_forever"
         ws.run_forever()
-        
+
         while(restart):
           print "Disconnected. Reconnect in 5 seconds..."
           time.sleep(5)
           ws.run_forever()
-        print "Init finished run_forever"
+
+    def _handle_message(self, ws, msgstr):
+        print ("(cbaas) HANDLE_MESSAGE")
+
+        msg = loads(msgstr)
+
+        print 'Message is loaded'
+        if (_isJob(msg)):
+
+            print 'Is Job'
+            print 'ID: ' + str(msg['contents'][0])
+            if self._workerID == None:
+                raise Exception("Job requested without _workerID defined")
+
+            respUrl = self._httpHost + '/api1/returnfun'
+            respParams = { 'worker-id': self._workerID,
+                           'job-id':    msg['contents'][0]}
+            respHeaders = {'Content-Type': 'application/json'}
+
+            msg_arg = _message_argument(msg)
+
+            v = _decode_cbaas_value(msg_arg)
+
+            r = self._on_job(v)
+            print "r: " + str(r)
+
+            cbaas_r = _encode_cbaas_value(r)
+            msg_r = {'tag':'WorkerFinished',
+                     'contents':[
+                         msg['contents'][0],
+                         {'job':msg['contents'][0],'value':cbaas_r}
+                     ]}
+            job_result = {'job': msg['contents'][0], 'value': cbaas_r }
+            # ws.send(dumps(msg_r))
+            print "PRE"
+            print "cbaas_r :"
+            print cbaas_r
+            print "job_result: "
+            print job_result
+            resp = requests.post(respUrl, params=respParams,
+                                 json=job_result, headers=respHeaders)
+
+            print resp
+            print resp.text
+            print "POST"
+
+        else:
+            try:
+                assert msg['tag'] != None
+                if msg['tag'] == 'WorkerSetID':
+                    print "Set worker id to " + msg['contents']
+                    assert msg['contents'] != None
+                    self._workerID = msg['contents']
+            except Exception as e:
+                raise Exception('SetID: Message decoding error, ' + str(e))
+
+def msg_job(msg):
+    j = msg['contents'][1]
+    try:
+        assert j['function'] != None
+        assert j['arg']      != None
+    except Exception as e:
+        raise Exception('message contains faulty job: ' + j)
+
+def _isJob(msg):
+    try:
+        assert msg['tag'] != None
+        return msg['tag'] == 'JobRequested'
+    except Exception as e:
+        raise Exception('Messagetype: Message decoding error, ' + str(e))
+
+
+
+def _message_argument(msg):
+
+    """Extract the argument part from a CBaaS message"""
+    try:
+        m = msg['contents'][1]
+        assert (m['arg']['tag']      != None)
+        assert (m['arg']['contents'] != None)
+        return m['arg']
+
+    except Exception as e:
+        raise Exception('Argument: Message decoding error, ' + str(e))
 
 def _handle_ping(ws, payload):
-    print "CALLBACK PING, sending PONG"
-    print "PING PAYLOAD:"
-    print payload
     ws.sock.pong(payload)
-    print "Send pong"
 
 def _handle_pong(ws,payload):
     print "CALLBACK PONG"
-
-def _handle_message(ws, msgstr, on_job):
-    print ("(cbaas) HANDLE_MESSAGE")
-
-    msg = loads(msgstr)
-
-    msg_arg = _message_argument(msg)
-
-    v = _decode_cbaas_value(msg_arg)
-
-    r = on_job(v)
-
-    cbaas_r = _encode_cbaas_value(r)
-    msg_r = {'tag':'WorkerFinished',
-             'contents':[
-               msg['contents'][0],
-               msg['contents'][1],
-               {'job':msg['contents'][0],'value':cbaas_r}
-             ]
-            }
-    ws.send(dumps(msg_r))
 
 def _decode_cbaas_value(kv):
     """Convert a CBaaS JSON-encoded value into a Python value
@@ -139,42 +195,44 @@ def show_err(ws, e):
 def show_close(ws):
   print ('CBaaS websocket CLOSE')
 
+def package_image_binary(binary_blob):
+    """Create a temporary file for an image and return its filename.
+       The file will be created in your system's temp directory,
+       but you should probably delete it after use anyway.
+    """
+    mimetype = imghdr.what('',binary_blob)
+    print "NEW VERSION2"
+    if mimetype == None:
+        raise Exception('Failed to identify image format for binary.')
+    else:
+        t  = tempfile.mkstemp(suffix=('.' + mimetype))
+        with open(t[1],'wb') as tf1:
+            tf1.write(binary_blob)
+        print t[1]
+        return t[1]
+
+
 
 def _load_through_tmp_image(blob):
     """Load a binary blob into a scikit-image image"""
     mimetype = imghdr.what('', blob);
     if mimetype:
         t  = tempfile.mkstemp(suffix=('.' + mimetype))
-        tf = open(t[1],'wb')
-        tf.write(blob)
-        tf.close()
+        with open(t[1],'wb') as tf:
+            tf.write(blob)
         i = skimage.img_as_float(skimage.io.imread(t[1]))
         remove(t[1])
         return i
     else:
         raise Exception('Could not determine image format')
 
-
-def _message_argument(msg):
-
-    """Extract the argument part from a CBaaS message"""
-    try:
-        m = msg['contents'][2]
-        assert (m['arg']['tag']      != None)
-        assert (m['arg']['contents'] != None)
-        return m['arg']
-
-    except Exception as e:
-        raise Exception('Message decoding error, ' + str(e))
-
+# This main function is only meant for testing this library.
+# Not meant for external use.
 if __name__ == "__main__":
   def work(x):
     print "Working on: "
     print x
     return numpy.prod(x.shape)
-    # return x[::-1]
   print "Main!"
-  l = Listener(on_job=work, host="ws://localhost", verbose=True)
+  l = Listener(on_job=work, domain="localhost:8000", verbose=True)
   print "Finished"
-
-

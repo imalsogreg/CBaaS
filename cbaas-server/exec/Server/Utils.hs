@@ -1,19 +1,22 @@
-{-# LANGUAGE CPP              #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-module Utils
+module Server.Utils
   ( keyToInt
   , keyToIntegral
   , intToKey
   , integralToKey
   , ghCodeGen
+  , err300
 -- #ifndef __GHCJS__
 --   , ghConfig
 -- #endif
   ) where
 
 ------------------------------------------------------------------------------
+import qualified Data.ByteString.Char8 as BS
 import           Data.Pool
 import           Database.Groundhog
 import           Database.Groundhog.Core
@@ -21,6 +24,8 @@ import           Database.Groundhog.Generic
 import           Database.Groundhog.TH
 #ifndef __GHCJS__
 import           Database.Groundhog.Postgresql
+import           Snap.Core (MonadSnap(..), finishWith, setResponseCode)
+import           Snap
 #else
 import           GHC.Int
 #endif
@@ -38,9 +43,18 @@ import qualified Data.UUID as U
 pg :: proxy Postgresql
 pg = undefined
 
+err300 :: MonadSnap m => String -> m b
+err300 e = do
+  modifyResponse $ setResponseStatus 300 "ServerError"
+  modifyResponse $ setHeader "Content-Type" "text/plain"
+  writeBS (BS.pack e)
+  getResponse >>= finishWith
 
 
 #else
+
+err300 :: String -> IO ()
+err300 = error
 
 data NilBackend
 

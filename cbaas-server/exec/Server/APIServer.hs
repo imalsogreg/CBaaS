@@ -6,32 +6,37 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TupleSections   #-}
 
 module Server.APIServer where
 
 import Control.Concurrent.STM
+import Data.Maybe (fromMaybe)
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.State (gets)
 import Control.Monad.Trans.Class
 import Data.Bifunctor (first)
+import Data.Bool (bool)
 import Data.ByteString (ByteString)
 import qualified Data.Map as Map
-import Data.Maybe (listToMaybe)
+import Data.Maybe (isJust, listToMaybe)
 import Data.Monoid ((<>))
 import Data.Proxy
 import Data.Text
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.UUID.V4
+import qualified Database.Groundhog as GH
 import Network.WebSockets
 import Network.WebSockets.Snap
 import Servant.API
-import Servant.Server
+import Servant.Server hiding (err300)
 import Snap.Core
 import Snap.Snaplet
 import Snap.Snaplet.Auth
 import Text.Read
+
 import API
 import EntityID
 import Worker
@@ -43,6 +48,8 @@ import Server.Crud
 import BrowserProfile
 import Browser
 import Job
+import Message
+import Server.Utils
 import Server.WebSocketServer
 
 ------------------------------------------------------------------------------
@@ -51,6 +58,8 @@ serverAPI :: Server API1 AppHandler
 serverAPI = serverAuth
        :<|> listOnlineWorkers
        :<|> callfun
+       :<|> getJobResult
+       :<|> returnFun
        :<|> serveBrowserWS
        :<|> serveWorkerWS
 
@@ -116,24 +125,50 @@ listOnlineWorkers = do
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   return (EntityMap $ Map.map _wProfile wrks)
 
--- callfun
---   :: Server (QueryParam "worker-id" WorkerProfileId
---              :> QueryParam "browser-id" BrowserProfileId
---              :> ReqBody '[JSON] Job
---              :> Post '[JSON] (EntityID Job)) AppHandler
-callfun :: (Maybe WorkerProfileId) 
-        -> (Maybe BrowserProfileId) 
-        -> Job 
+callfun :: (Maybe WorkerProfileId)
+        -> Job
         -> AppHandler (EntityID Job)
-callfun (Just wID :: Maybe WorkerProfileId) bID job = do
+callfun (Just wID :: Maybe WorkerProfileId) job = do
   wrks :: Map.Map (EntityID WorkerProfile) Worker <-
     liftIO . atomically . readTVar =<< gets _workers
   case Map.lookup wID wrks of
     Nothing                  -> liftIO (print "No match") >> pass
     (Just w :: Maybe Worker) -> do
       jID  <- EntityID <$> liftIO nextRandom
-      liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, bID, job)
+      liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, job)
       return jID
+
+
+-------------------------------------------------------------------------------
+-- | Handler for workers returning results
+returnFun :: Maybe WorkerProfileId
+          -> Maybe (EntityID Job)
+          -> JobResult
+          -> AppHandler ()
+returnFun Nothing _ _     = err300 "Missing required parameter worker-id"
+returnFun _ Nothing _     = err300 "Missing required parameter job-id"
+returnFun (Just wID) (Just jobID) jr = do
+  k <- runGH $ GH.insert jr
+  liftIO $ putStrLn $ "INSERTION KEY: " ++ show k
+  broadcastBrowsers (JobFinished jobID)
+  -- resolveJob jr
+
+broadcastBrowsers :: BrowserMessage -> AppHandler ()
+broadcastBrowsers msg = do
+  bs <- (liftIO . readTVarIO) =<< gets _browsers
+  liftIO $ mapM_ (\b -> atomically $ writeTChan (bMessages b) msg) bs
+
+
+
+getJobResult :: Maybe (EntityID Job) -> Handler App App JobResult
+getJobResult Nothing = err300 "Missing parameter job-id"
+getJobResult (Just jobID) = do
+  liftIO (putStrLn $ "Get job result for " ++ show jobID)
+  q <- runGH $ GH.select (JrJobField GH.==. jobID)
+  case q of
+    []  -> err300 $ "Found no job result at " ++ show jobID
+    [r] -> return (r :: JobResult)
+    _   -> err300 $ "Too many job results at " ++ show jobID
 
 
 -- resolveFunction :: Maybe FunctionName
@@ -161,11 +196,11 @@ serveWorkerWS :: Maybe WorkerName -> Maybe Text -> AppHandler ()
 serveWorkerWS (Just wName) (Just fName) = do
   brs     <- gets _browsers
   wks     <- gets _workers
-  results <- gets _rqueue
+  -- results <- gets _rqueue
   liftIO $ print "ServeWorker: about to runWebSockets"
   runWebSocketsSnap $ \pending -> do
     print "Running"
-    runWorker pending (WorkerProfile wName fName) wks brs results
+    runWorker pending (WorkerProfile wName fName) wks brs
 serveWorkerWS Nothing _ = do
   liftIO $ print "No name"
   writeBS "Please give a worker-name parameter"

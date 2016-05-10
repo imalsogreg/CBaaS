@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Server.WebSocketServer (
-  fanoutResults,
   runBrowser,
   runWorker) where
 
@@ -16,6 +15,7 @@ import qualified Data.Aeson as A
 import Data.ByteString.Char8 (ByteString)
 import Data.Map
 import qualified Data.Map as Map
+import Data.Text (Text)
 import Data.UUID.V4
 import System.IO
 import qualified Network.WebSockets as WS
@@ -30,20 +30,6 @@ import WorkerProfile
 import BrowserProfile
 import Browser
 
-
-------------------------------------------------------------------------------
--- | Watch results channel and send results to the browser that
---   initially requested the job
-fanoutResults :: TChan (EntityID Job, Maybe (BrowserProfileId), JobResult)
-              -> TVar BrowserMap -> IO ()
-fanoutResults results browsers = forever $ do
-  (browserMatch, res) <- atomically $ do
-    (wrk,br,res) <- readTChan results
-    brs <- readTVar  browsers
-    return (flip Map.lookup brs =<< br, res)
-  case browserMatch of
-    Nothing -> return ()
-    Just b  -> WS.sendTextData (bConn b) (A.encode (JobFinished (jrJob res, res)))
 
 
 runBrowser :: WS.PendingConnection
@@ -102,46 +88,31 @@ runWorker :: WS.PendingConnection
           -> TVar (Map (EntityID WorkerProfile) Worker)
           -- ^ Worker map - for self-inserting and deleting
           -> TVar BrowserMap
-          -> TChan (EntityID Job, Maybe (BrowserProfileId), JobResult)
-          -- ^ Completion write channel
           -> IO ()
-runWorker pending wp workers browsers resultsChan = do
+runWorker pending wp workers browsers = do
   conn     <- WS.acceptRequest pending
   i :: EntityID WorkerProfile <- EntityID <$> nextRandom
   jobsChan <- atomically newTChan
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
-  _ <- forkIO $ talk conn jobsChan
+
+  _ <- forkIO $ WS.sendTextData conn (A.encode $ WorkerSetID (_wID worker)) >>
+                sendJob conn jobsChan
+
   flip finally (disconnect i) $ forever $ do
-    m <- WS.receiveData conn
-    case (A.decode m :: Maybe WorkerMessage) of
-      Just (WorkerFinished (_,b,r)) -> do
-        print "WORKER FINISHED"
-        atomically $ writeTChan resultsChan (jrJob r, b, r)
-      Just (WorkerStatusUpdate (j,b,r)) ->
-        atomically $ writeTChan resultsChan (j,b,r)
-      Just (JobRequested _) -> do
-        print "Received 'JobRequested' message in an unexpected place"
-      Nothing -> error "Message decoding error"
-  where
+    m :: Text <- WS.receiveData conn
+    return ()  -- We don't expect to receive any messages back from the worker
+               -- Worker's result comes back over http
+     where
+
+    sendJob :: WS.Connection -> TChan (EntityID Job, Job) -> IO ()
+    sendJob conn jobsChan = do
+        print "Worker waiting"
+        (jID, j) <- atomically (readTChan jobsChan)
+        print "Worker Sending"
+        WS.sendTextData conn (A.encode $ JobRequested (jID, j))
+        sendJob conn jobsChan
+
     disconnect i = atomically $ modifyTVar workers
                               $ Map.delete i
 
-    talk :: WS.Connection
-         -> TChan (EntityID Job, Maybe (BrowserProfileId), Job)
-         -> IO ()
-    talk conn jobsChan = do
-        (jID, brID, j) <- atomically (readTChan jobsChan)
-        WS.sendTextData conn (A.encode $ JobRequested (jID, brID, j))
-        talk conn jobsChan
-
-    listenTillDone :: WS.Connection -> IO (EntityID Job, Maybe (BrowserProfileId), JobResult)
-    listenTillDone conn = do
-        m <- WS.receiveData conn
-        print $ "In listenTillDone, got: " ++ show m
-        case A.decode m of
-          Just (WorkerFinished (_,b,r)) ->
-            return (jrJob r, b, r)
-          Just (WorkerStatusUpdate (j,b,r)) -> do
-            atomically $ writeTChan resultsChan (j,b,r)
-            listenTillDone conn

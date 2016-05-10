@@ -2,7 +2,6 @@
 
 module Browser where
 
-
 import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Exception
@@ -16,12 +15,13 @@ import qualified Servant.API as Servant
 import Web.HttpApiData
 import BrowserProfile
 import EntityID
+import Message
 import Job
 
 data Browser = Browser
-  { bID         :: BrowserProfileId
-  , bConn       :: WS.Connection
-  , bJobResults :: TChan JobResult
+  { bID       :: BrowserProfileId
+  , bConn     :: WS.Connection
+  , bMessages :: TChan BrowserMessage
   }
 
 type BrowserMap = Map.Map BrowserProfileId Browser

@@ -17,7 +17,7 @@ data BrowserMessage = WorkerJoined (EntityID WorkerProfile) WorkerProfile
                       -- ^ Informing the browser that a worker has joined
                     | WorkerLeft   (EntityID WorkerProfile)
                       -- ^ Informing the browser that a worker has left
-                    | JobFinished  (EntityID Job, JobResult)
+                    | JobFinished  (EntityID Job)
                       -- ^ Informing the browser of job completion - usually
                       --   for jobs that this browser requested
                     | JobStatusUpdate (EntityID Job, JobResult)
@@ -36,7 +36,7 @@ instance A.FromJSON BrowserMessage
 ------------------------------------------------------------------------------
 -- | 'WorkerMessage's go between CBaaS server and online workers
 data WorkerMessage = JobRequested
-                     (EntityID Job, Maybe (BrowserProfileId), Job)
+                     (EntityID Job, Job)
                      -- ^ Informs a worker that a user has requested a job.
                      --   CBaaS server is
                      --   responsible for ensuring that job requests are
@@ -44,15 +44,16 @@ data WorkerMessage = JobRequested
                      --   and the worker's willingness to do jobs for
                      --   various sorts of users based on group membership
                    | WorkerStatusUpdate
-                     (EntityID Job, Maybe (BrowserProfileId), JobResult)
+                     (EntityID Job, JobResult)
                      -- ^ Informs the server that partial progress has been
                      --   made on a job.
                      --   TODO: Can/should we enforce the type
                      --         of incremental results?
                    | WorkerFinished
-                     (EntityID Job, Maybe (BrowserProfileId), JobResult)
+                     (EntityID Job, JobResult)
                      -- ^ Informs the server that the worker has finished,
                      --   including the 'JobResult' data
+                   | WorkerSetID (EntityID WorkerProfile)
   deriving (Eq, Show, Generic)
 
 instance A.ToJSON WorkerMessage

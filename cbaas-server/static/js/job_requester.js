@@ -1,6 +1,5 @@
 "use strict";
 
-var myjobs    = {};
 
 function job_request() {
 
@@ -23,9 +22,9 @@ function callFun(){
         var workersForFn = functions[fName];
         var url = 'api1/callfun?worker-id=' + workersForFn[0];
 
-        if (mybrowserid != undefined) {
-            url = url + '&browser-id=' + mybrowserid;
-        }
+        // if (mybrowserid != undefined) {
+        //     url = url + '&browser-id=' + mybrowserid;
+        // }
         var argVar = {tag:'VText',
                       contents: fArg
                      };
@@ -91,13 +90,13 @@ function callPicFun(){
         var fArg = urlDataToVal( getImgBytes() );
         console.log(fArg);
         var url = 'api1/callfun?worker-id=' + workersForFn[0];
-        if (mybrowserid != undefined) {
-            url = url + '&browser-id=' + mybrowserid;
-        }
+        // if (mybrowserid != undefined) {
+        //     url = url + '&browser-id=' + mybrowserid;
+        // }
         d = JSON.stringify({'function':fName,'arg':fArg});
         var dl = d.length;
         $.ajax(url,
-               {'success':function(d){console.log('success: ' + d);},
+               {'success':function(d){myjob = d; console.log(myjob);},
                 'failure':renderError,
                 'headers':{'Accept':'application/json',
                            'Content-Type':'application/json'

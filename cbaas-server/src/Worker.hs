@@ -44,5 +44,5 @@ data Worker = Worker
   { _wProfile :: WorkerProfile
   , _wID      :: EntityID WorkerProfile
   , _wConn    :: WS.Connection
-  , _wJobQueue :: TChan (EntityID Job, Maybe BrowserProfileId, Job)
+  , _wJobQueue :: TChan (EntityID Job, Job)
   } deriving (Generic)

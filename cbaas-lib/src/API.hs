@@ -31,16 +31,27 @@ import           Job
 --   generate documentation and clients in a number of languages
 --   For more information about API specifications, see the Servant
 --   <http://haskell-servant.github.io documentation>
-type API1 = "user"        :> UserAPI
-  :<|> "worker"           :> Get '[JSON] WorkerProfileMap
-  :<|> "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
-                 :> QueryParam "browser-id" BrowserProfileId
-                 :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
-  :<|> "browse"  :> Raw
-  :<|> "work"    :> QueryParam  "name"     WorkerName
-                 :> QueryParam  "function" Text
-                 :> Raw
-  -- :<|> "work"    :> QueryParam "worker-profile" WorkerProfile :> Raw
+type API1 =
+            "user" :> UserAPI
+       :<|>
+            "worker" :> Get '[JSON] WorkerProfileMap
+       :<|>
+            "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
+                      -- :> QueryParam "browser-id" BrowserProfileId
+                      :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
+       :<|>
+            "jobresult" :> QueryParam "job-id" (EntityID Job) :> Get '[JSON] JobResult
+       :<|>
+            "returnfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
+                        :> QueryParam "job-id" (EntityID Job)
+                        :> ReqBody '[JSON] JobResult
+                        :> Post '[] ()
+       :<|>
+            "browserupdates" :> Raw
+       :<|>
+            "work" :> QueryParam  "name"     WorkerName
+                   :> QueryParam  "function" Text
+                   :> Raw
 
 
 ------------------------------------------------------------------------------

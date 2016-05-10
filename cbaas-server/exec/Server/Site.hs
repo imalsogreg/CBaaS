@@ -42,7 +42,7 @@ import           Snap.Snaplet.PostgresqlSimple (getConnectionString)
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           API
--- import           Combo
+import           Job
 import           EntityID
 import           RemoteFunction
 import           WorkerProfile
@@ -50,7 +50,6 @@ import           Server.Application
 import           Server.APIServer
 import           Server.GroundhogAuth
 import           Server.WebSocketServer
-
 
 ------------------------------------------------------------------------------
 -- | Render login form
@@ -104,12 +103,11 @@ routes = [ ("login"   , with auth handleLoginSubmit)
 app :: SnapletInit App App
 app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     cfg <- getSnapletUserConfig
-    -- p   <- nestSnaplet "db" db pgsInit
-    cfg <- C.subconfig "postgresql-simple" <$> getSnapletUserConfig
-    -- p <- nestSnaplet "pgs" pgs $ pgsInit' cfg
+    cfg <- C.subconfig "postgresql" <$> getSnapletUserConfig
 
     connstr <- liftIO $ decodeUtf8 <$> getConnectionString cfg
     p   <- liftIO $ withPostgresqlPool (T.unpack connstr) 3 return
+    liftIO $ print connstr
     liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) p)
 
     h   <- nestSnaplet "" heist $ heistInit "templates"
@@ -117,18 +115,16 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
            initCookieSessionManager "site_key.txt" "sess" Nothing (Just 3600)
     a   <- nestSnaplet "auth" auth $
              initGroundhogAuth sess p
-    w   <- liftIO $ newTVarIO $ Data.Map.empty
-    b   <- liftIO $ newTVarIO $ Data.Map.empty
-    j   <- liftIO newBroadcastTChanIO
-    r   <- liftIO newTChanIO -- newBroadcastTChanIO
-    
+    w   <- liftIO $ newTVarIO Data.Map.empty
+    b   <- liftIO $ newTVarIO Data.Map.empty
+    r   <- liftIO newTChanIO
+
     addRoutes routes
-    liftIO $ forkIO $ fanoutResults r b
-    return $ App h p s a w b j r
+    return $ App h p s a w b
+
 
 migrateDB :: (MonadIO m, PersistBackend m) => m ()
 migrateDB = runMigration $ do
       G.migrate (undefined :: Function)
-      -- G.migrate (undefined :: FunctionTag)
       G.migrate (undefined :: WorkerProfile)
-      --migrate (undefined :: JobResult) -- Results cache
+      G.migrate (undefined :: JobResult)

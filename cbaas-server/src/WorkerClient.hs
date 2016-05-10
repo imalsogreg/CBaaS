@@ -24,7 +24,7 @@ runWorker f = WS.runClient "localhost" 9160 "/worker?name=test&function=size" $
           WS.DataMessage (WS.Binary y) -> Just y
           _                            -> Nothing
     case A.decode =<< t of
-        Just (JobRequested (i, b, j)) -> do
+        Just (JobRequested (i, j)) -> do
           print "Good decode of job request"
           -- print (Model.fromVal $ _jArg j)
           print "About to send to worker"
@@ -32,8 +32,7 @@ runWorker f = WS.runClient "localhost" 9160 "/worker?name=test&function=size" $
           print "Result: "
           print (Model.toVal r)
           WS.sendTextData conn
-            (A.encode $ WorkerFinished (i, b,
-                                (JobResult (Model.toVal r) i)))
+            (A.encode $ WorkerFinished (i, (JobResult (Model.toVal r) i)))
         Just x -> print $ "Good decode for unexpected message: " ++ show x
         Nothing -> print $  fmap (("Bad decode of " ++) . unpack ) t
         -- x -> print $ "Got non-text message: " ++ show x

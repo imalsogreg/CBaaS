@@ -5,14 +5,22 @@
 module EntityID where
 
 import           Control.Monad         (mzero)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Data.Aeson            as A
 import qualified Data.Aeson.Parser     as A
 import           Data.Aeson            (FromJSON, ToJSON)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Map              as Map
+import           Data.Maybe            (fromJust)
 import           Data.Monoid
+import           Data.Proxy
 import           Data.Text             (Text, unpack)
 import qualified Data.UUID             as UUID
+import           Data.UUID.V4          (nextRandom)
+import           Database.Groundhog
+import           Database.Groundhog.Core
+import           Database.Groundhog.Generic
 import           Database.Groundhog.TH
 import           GHC.Generics
 import           Servant.API
@@ -23,6 +31,9 @@ import           Web.HttpApiData
 --   so that we can manually define how to convert id's into JSON data
 newtype EntityID a = EntityID { unID :: UUID.UUID }
   deriving (Show, Read, Eq, Ord)
+
+randomID :: MonadIO io => io (EntityID a)
+randomID = EntityID <$> liftIO nextRandom
 
 newtype EntityMap a = EntityMap { unEntityMap :: Map.Map (EntityID a) a }
                       deriving (Eq, Ord, Generic)
@@ -58,6 +69,23 @@ instance FromJSON (EntityID a) where
     Just i  -> return (EntityID i)
   parseJSON _ = mzero
 
+instance PrimitivePersistField (EntityID a) where
+  toPrimitivePersistValue _ (EntityID uuid) = PersistString $ show uuid
+  fromPrimitivePersistValue _ s =
+    let pDecodeString x = case UUID.fromString x of
+            Just i -> EntityID i
+            Nothing -> error $ "Error calling fromString on " ++ show x
+    in case s of
+      PersistString str -> pDecodeString str
+      PersistByteString str -> pDecodeString $ BS.unpack str
+
+instance PersistField (EntityID a) where
+  persistName _ = "uuid"
+  toPersistValues = primToPersistValue
+  fromPersistValues = primFromPersistValue
+  dbType db _ = case backendName db of
+    "postgresql" -> DbTypePrimitive (DbOther $ OtherTypeDef [Left "uuid"]) False Nothing Nothing
+    _ -> DbTypePrimitive DbString False Nothing Nothing
 
 -- instance ToField (EntityID a) where
 --   toField (EntityID i) = toField i

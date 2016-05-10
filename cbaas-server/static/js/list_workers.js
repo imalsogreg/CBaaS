@@ -2,6 +2,7 @@
 
 // expose the websockets connection for debugging
 var w = undefined;
+var myjob = undefined;
 
 var mybrowserid = undefined;
 var workers   = {};
@@ -15,7 +16,7 @@ $('document').ready(function (){
       new_uri = "ws:";
     }
     new_uri += "//" + loc.host;
-    new_uri += loc.pathname + "api1/browse"
+    new_uri += loc.pathname + "api1/browserupdates",
     w = new WebSocket(new_uri);
     w.onclose = function(m) {
         console.log("CLOSED: " + m);
@@ -49,13 +50,41 @@ $('document').ready(function (){
         } else if (msg.tag == "JobFinished") {
             console.log('JobFinished');
             console.log(msg.contents);
-            $('body').append("<br/>" + msg.contents[1].value.contents);
+            fetchAndPrintResult(msg.contents);
         }
         listWorkers();
         console.log('Finished onmessage handler');
     };
 
 });
+
+function fetchAndPrintResult(resultID) {
+    if(resultID == myjob){
+        console.log('JOB MATCH - RUN AJAX');
+        var url = 'api1/jobresult?job-id=' + resultID;
+        console.log('URL: ' + url);
+        $.ajax(url,
+               {'success': function(r) {
+                   var res = r;
+                   console.log("FOUND RESULT");
+                   console.log(res);
+                   $('body').append("<br/>" + res.value.contents);
+               },'error': function(e) {
+                   console.log('ERROR');
+                   console.log(e);
+               },'failure':function(e) {console.log('FAILURE: ' + e);
+               },'headers':{'Accept':'application/json',
+                            'Content-Type':'application/json'
+                           },
+                'method':'Get',
+                'dataType':'json',
+                'data':'{}'
+               }
+              );
+    } else {
+        console.log("This is someone else's job: " + resultID);
+    }
+}
 
 var t;
 
