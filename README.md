@@ -1,16 +1,25 @@
-CBaaS
+cbaas
 =====
-
-* Strictly a work-in-progress. There is no code here yet, only ideas *
 
 [Center for Brains Minds and Machines](http://cbmm.mit.edu) as a Service. Test your stimulus against community algorithms. Test your algorithm against community stimuli. See what brains think.
 
-Use
----
+What is it?
+-----------
 
- - Browse stimuli, classifiers, and data on the website
- - Use the [API](TODO docs) to fetch and classify stimuli
- - Get feature vectors for stimuli from standard visual models
+An open-world network for composing research results. cbaas will allow you to expose your research artifact to the internet, so that others can test it with new data, and you can have live access to it during presentations. Composable reseaarch means that if your algorithm produces data that another consumes, you can compose them end-to-end.
+
+Architecture
+------------
+
+ - *Worker*: A unit of research expressed as a function. By calling your function from one of the cbaas client libraries, you make it discoverable to the cbaas website as a service. Users can send your code arguments (e.g. pictures, spike trains), and your experimental code can send back responses (e.g. classifications, spike train decodings).
+ - *User*: A visitor to the cbaas website, or a user of cbaas browsing code in a slide deck. Users can send queries to individual *worker* functions. Additionally, users can write cbaas expressions that compose *worker* functions together in ways that the *workers'* authors may not have anticipated
+ - *Server*: A cbaas server manages the flow of information between *users* and *workers*. It caches *workers'* responses to speed up subsequent calls with matching arguments, and handles permissions and rate-limiting.
+
+Is it ready?
+------------
+
+Nope! But we're working hard right now on the core features and documentation. We hope to have a working demo ready soon.
+
 
 API
 ---
