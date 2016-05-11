@@ -117,8 +117,3 @@ instance PrimitivePersistField U.UUID where
 
 ghCodeGen :: CodegenConfig
 ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }
-
-ghConfig :: CodegenConfig
-ghConfig = defaultCodegenConfig
-    { namingStyle = lowerCaseSuffixNamingStyle }
-

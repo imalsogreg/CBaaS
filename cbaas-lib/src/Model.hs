@@ -8,7 +8,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# language QuasiQuotes       #-}
 {-# language TypeFamilies       #-}
-{-# language GADTs       #-}
 {-# language FlexibleInstances       #-}
 
 module Model where
@@ -35,6 +34,7 @@ import Text.Read
 import Text.ParserCombinators.ReadPrec
 import Codec.Picture
 import EntityID
+import Utils
 
 class ToVal a where
   toVal :: a -> Val
@@ -62,7 +62,7 @@ class FromVal a where
 data Expr = ELit    Val
           | ELambda Text  Expr
           | EApp    Expr  Expr
-          deriving (Eq, Ord, Show, GHC.Generics.Generic)
+          deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 instance A.ToJSON Expr
 instance A.FromJSON Expr
@@ -84,9 +84,7 @@ instance A.ToJSON Type
 
 instance A.FromJSON Type
 
-data Val = -- VAny    A.Value
-        --  |
-           VDouble Double
+data Val = VDouble Double
          | VComplex PrimComplex
          | VText Text
          | VImage ModelImage
@@ -100,8 +98,8 @@ data Val = -- VAny    A.Value
          | VMat2C  (V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val))
-         -- | VClosure [(Text,Expr)] Expr
-         deriving (Eq, Show, Ord, Read, GHC.Generics.Generic)
+         | VClosure [(Text,Expr)] Expr
+         deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 
 instance Generics.SOP.Generic Val
