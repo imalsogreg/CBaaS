@@ -11,8 +11,8 @@ import qualified Data.Aeson    as A
 import           Data.Aeson    ((.:), (.=), ToJSON(..), FromJSON(..))
 import           Data.Map      (Map)
 import           Data.Text     (Text, pack, unpack)
-import qualified Data.UUID     as UUID
-import           Data.UUID     (UUID, fromText, toText)
+import qualified Data.UUID.Types     as UUID
+import           Data.UUID.Types     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
                                ,Capture, ReqBody, Raw, FormUrlEncoded
                                ,QueryParam, QueryParams)

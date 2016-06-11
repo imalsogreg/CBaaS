@@ -16,8 +16,7 @@ import           Data.Maybe            (fromJust)
 import           Data.Monoid
 import           Data.Proxy
 import           Data.Text             (Text, unpack)
-import qualified Data.UUID             as UUID
-import           Data.UUID.V4          (nextRandom)
+import qualified Data.UUID.Types             as UUID
 import           Database.Groundhog
 import           Database.Groundhog.Core
 import           Database.Groundhog.Generic
@@ -32,8 +31,6 @@ import           Web.HttpApiData
 newtype EntityID a = EntityID { unID :: UUID.UUID }
   deriving (Show, Read, Eq, Ord)
 
-randomID :: MonadIO io => io (EntityID a)
-randomID = EntityID <$> liftIO nextRandom
 
 newtype EntityMap a = EntityMap { unEntityMap :: Map.Map (EntityID a) a }
                       deriving (Eq, Ord, Generic)

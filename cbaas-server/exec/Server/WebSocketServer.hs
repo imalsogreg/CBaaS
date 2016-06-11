@@ -55,11 +55,11 @@ runBrowser pending browsers workers = do
     disconnect i =
       atomically $ modifyTVar browsers (Map.delete i)
 
-    runChannel conn resultsChan = forever $ do
-      atomically (readTChan resultsChan) >>= \r -> do
+    runChannel conn resultsChan = forever $
+      atomically (readTChan resultsChan) >>= \r ->
         WS.sendTextData conn (A.encode r)
 
-    listen conn resultsChan = forever $ do
+    listen conn resultsChan = forever $
       WS.receiveData conn >>= \(d :: ByteString) ->
         print "Really wasn't expecting messages here."
 
@@ -96,8 +96,9 @@ runWorker pending wp workers browsers = do
   let worker = Worker wp i conn jobsChan
   atomically $ modifyTVar workers (Map.insert (_wID worker) worker)
 
-  _ <- forkIO $ WS.sendTextData conn (A.encode $ WorkerSetID (_wID worker)) >>
-                sendJob conn jobsChan
+  _ <- forkIO $ do
+    WS.sendTextData conn (A.encode $ WorkerSetID (_wID worker))
+    sendJob conn jobsChan
 
   flip finally (disconnect i) $ forever $ do
     m :: Text <- WS.receiveData conn
@@ -107,10 +108,11 @@ runWorker pending wp workers browsers = do
 
     sendJob :: WS.Connection -> TChan (EntityID Job, Job) -> IO ()
     sendJob conn jobsChan = do
-        print "Worker waiting"
+        print "**Worker waiting**"
         (jID, j) <- atomically (readTChan jobsChan)
-        print "Worker Sending"
+        print "**Worker sending**"
         WS.sendTextData conn (A.encode $ JobRequested (jID, j))
+        print "**Worker sent**"
         sendJob conn jobsChan
 
     disconnect i = atomically $ modifyTVar workers

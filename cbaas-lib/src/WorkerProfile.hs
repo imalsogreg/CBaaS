@@ -19,9 +19,9 @@ import qualified Data.Map as Map
 import Data.Text hiding (map, filter)
 import qualified Data.ByteString.Char8 as BS
 import Data.Text.Encoding
-import Data.UUID
-import qualified Data.UUID as UUID
-import Data.UUID.V4
+import Data.UUID.Types
+import qualified Data.UUID.Types as UUID
+-- import Data.UUID.V4
 import GHC.Generics
 -- import qualified Network.WebSockets as WS
 import Servant.API

@@ -1,5 +1,6 @@
 <div class="job-requester">
 
+  <!--
   <h2>Call function</h2>
 
   <form>
@@ -22,6 +23,7 @@
       <button class="btn btn-default" type="button" id="go">Go!</button>
     </span>
   </div>
+  -->
 
   <div class="workers">
     <table id="workers">
@@ -36,6 +38,7 @@
     <input type="text" class="form-control" id="pic-fun-arg"
            onkeyup="updatePicLoaded()"
            placeholder="img.jpg"/>
+    <input type="text" class="form-control" id="occlude" placeholder="0" value="0" onkeyup="updatePicLoaded()"/>
     <button class="btn btn-default" type="button" id="pic-go"
             onclick="callPicFun()">
       Send Pic
@@ -43,7 +46,7 @@
   </div>
 
   <h4>Img</h4>
-  <img id="tmpimg"/>
+  <img id="tmpimg" onLoad="picLoaded()"/>
 
   <h4>Canvas</h4>
   <canvas id="imgcanvas"></canvas>
@@ -52,3 +55,14 @@
   <script src="js/list_workers.js"></script>
 
 </div>
+
+<style>
+#tmpimg {
+  display: none;
+  width: 200px;
+}
+
+#imgcanvas {
+  width: 200px;
+}
+</style>

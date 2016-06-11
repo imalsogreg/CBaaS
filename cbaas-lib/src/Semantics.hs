@@ -26,7 +26,7 @@ module Semantics where
 import Control.Monad.Free
 import Control.Monad.Free.TH
 import Data.IORef
-import Data.UUID.V4
+import Data.UUID.Types
 import Data.Map (Map)
 import qualified Data.Map as Map
 

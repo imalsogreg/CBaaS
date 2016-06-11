@@ -59,18 +59,29 @@ function updatePicLoaded(){
            {'success': function(d) {
                tmpimg[0].crossOrigin = "Anonymous";
                tmpimg.attr('src',picurl);
-               var i2 = $('#tmpimg');
-               var w = i2.naturalWidth;
-               var h = i2.naturalHeight;
-               var ctx = tmpcanvas[0].getContext('2d');
-               ctx.canvas.width = w;
-               ctx.canvas.height = h;
-               ctx.drawImage(tmpimg[0],0,0);
            },
            'error': function(d){
                tmpimg.attr('src',placeholder_url);
            }
            });
+}
+
+function picLoaded(){
+    var tmpimg = $('#tmpimg');
+    var tmpcanvas = $('#imgcanvas');
+    tmpimg[0].crossOrigin = "Anonymous";
+    var w = tmpimg[0].naturalWidth;
+    var h = tmpimg[0].naturalHeight;
+    console.log(w);
+    console.log(h);
+    var ctx = tmpcanvas[0].getContext('2d');
+    ctx.canvas.width = w;
+    ctx.canvas.height = h;
+    ctx.drawImage(tmpimg[0],0,0);
+    console.log("DRAWING RECT!");
+    var occWid = parseInt( $('#occlude')[0].value );
+    ctx.fillStyle = "#00AAAA";
+    ctx.fillRect(5,5,occWid,400);
 }
 
 var d; // for debugging
@@ -120,14 +131,6 @@ function getImgBytes(){
     var tmpimg = $('#tmpimg');
     var tmpcanvas = $('#imgcanvas');
     tmpimg[0].crossOrigin = "Anonymous";
-    var w = tmpimg[0].naturalWidth;
-    var h = tmpimg[0].naturalHeight;
-    console.log('height: ' + h);
-    console.log(tmpimg);
     var ctx = tmpcanvas[0].getContext('2d');
-    ctx.canvas.width = w;
-    ctx.canvas.height = h;
-    ctx = tmpcanvas[0].getContext('2d');
-    ctx.drawImage(tmpimg[0],0,0);
     return (tmpcanvas[0].toDataURL('image/png'));
 }

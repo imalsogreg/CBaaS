@@ -14,8 +14,8 @@ import Control.Lens hiding ((.=))
 import Data.Aeson
 import qualified Data.Aeson as A
 import Data.Text
-import Data.UUID
-import qualified Data.UUID as UUID
+import Data.UUID.Types
+import qualified Data.UUID.Types as UUID
 import Database.Groundhog
 import Database.Groundhog.TH
 import Web.HttpApiData

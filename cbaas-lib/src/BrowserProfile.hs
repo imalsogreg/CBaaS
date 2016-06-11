@@ -5,8 +5,7 @@ module BrowserProfile where
 
 import qualified Data.Aeson as A
 import qualified Data.Map as Map
-import           Data.UUID
-import           Data.UUID.V4
+import           Data.UUID.Types
 import qualified Servant.API as Servant
 import           Web.HttpApiData
 

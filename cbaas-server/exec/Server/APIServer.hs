@@ -125,16 +125,16 @@ listOnlineWorkers = do
   wrks <- liftIO . atomically . readTVar =<< gets _workers
   return (EntityMap $ Map.map _wProfile wrks)
 
-callfun :: (Maybe WorkerProfileId)
+callfun :: Maybe WorkerProfileId
         -> Job
         -> AppHandler (EntityID Job)
 callfun (Just wID :: Maybe WorkerProfileId) job = do
-  wrks :: Map.Map (EntityID WorkerProfile) Worker <-
-    liftIO . atomically . readTVar =<< gets _workers
+  wrks <- liftIO . atomically . readTVar =<< gets _workers
   case Map.lookup wID wrks of
     Nothing                  -> liftIO (print "No match") >> pass
     (Just w :: Maybe Worker) -> do
       jID  <- EntityID <$> liftIO nextRandom
+      liftIO $ print "WRITING TO TCHAN"
       liftIO $ atomically $ writeTChan (_wJobQueue w) (jID, job)
       return jID
 
@@ -171,20 +171,6 @@ getJobResult (Just jobID) = do
     _   -> err300 $ "Too many job results at " ++ show jobID
 
 
--- resolveFunction :: Maybe FunctionName
---                 -> Maybe Type
---                 -> [Tag]
---                 -> Bool
---                 -> AppHandler RemoteFunction
--- resolveFunction Nothing _ _ _ _ = err300 "Function name is mandatory"
--- resolveFunction (Just fName) fType necessaryTags strictlyOne = do
---   rs     <- select funQueryConditions
---   tags   <- select (FunctionTagFunctionField ==. fName)
-  
---   where funQueryConditions Nothing  = FunctionNameField ==. fName
---         funQueryConditions (Just t) = FunctionNameField ==. fName &&.
---                                       FunctionTypeField ==. t
-
 
 serveBrowserWS :: Server Raw AppHandler
 serveBrowserWS = do
@@ -192,11 +178,11 @@ serveBrowserWS = do
   wks <- gets _workers
   runWebSocketsSnap $ \pending -> runBrowser pending brs wks
 
+
 serveWorkerWS :: Maybe WorkerName -> Maybe Text -> AppHandler ()
 serveWorkerWS (Just wName) (Just fName) = do
   brs     <- gets _browsers
   wks     <- gets _workers
-  -- results <- gets _rqueue
   liftIO $ print "ServeWorker: about to runWebSockets"
   runWebSocketsSnap $ \pending -> do
     print "Running"
