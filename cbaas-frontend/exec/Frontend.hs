@@ -5,11 +5,14 @@ import Data.Either
 import Reflex.Dom
 import Frontend.Function
 import Frontend.ImageWidget
+import Frontend.WebcamWidget
 
 main :: IO ()
 main = mainWidget $ do
- loader <- fileImageLoader
- displayImg =<< holdDyn (T.pack "") (fmap snd loader)
+  text "Hello"
+  webcamWidget
+  -- loader <- fileImageLoader
+  -- displayImg =<< holdDyn (T.pack "") (fmap snd loader)
 
 
 hush :: Either e a -> Maybe a

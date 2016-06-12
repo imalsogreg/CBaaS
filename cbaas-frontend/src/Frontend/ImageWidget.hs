@@ -65,13 +65,14 @@ defImg = JP.generateImage (\_ _ -> JP.PixelRGBA8 0 0 1 1) 10 10
 fileImageLoader :: forall t m .MonadWidget t m
                 => m (Event t (Either String Img, T.Text))
 fileImageLoader = do
-  fls <- value <$> fileInput def
-  reader <- liftIO $ newFileReader
-  display =<< mapDyn length fls
-  performEvent_ (ffor (fmapMaybe viewSingleton (updated fls)) $ \f -> do
-    liftIO $ print "READ"
-    readAsDataURL reader (Just f))
+  fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$> fileInput def
 
+  #ifdef ghcjs_HOST_OS
+
+  reader <- liftIO $ newFileReader
+  performEvent_ $ ffor fls $ \f -> liftIO $ do
+    print "READ"
+    readAsDataURL reader (Just f)
   imgs <- wrapDomEvent reader (`on` load) $ do
     liftIO $ print "LOAD"
     res :: T.Text <- liftIO $ fromJSValUnchecked =<< getResult reader
@@ -81,6 +82,16 @@ fileImageLoader = do
       Right i -> "RIGHT"
       Left  e -> e
     return (img,res)
+
+  #else
+
+  -- let x = GHCJS.DOM.File.getName undefined :: IO Int
+  imgs <- performEvent $ ffor fls $ \f -> liftIO $ do
+    fname :: String <- GHCJS.DOM.File.getName f
+    print fname
+    undefined
+
+  #endif
   return imgs
 
 -------------------------------------------------------------------------------
@@ -117,7 +128,11 @@ displayImg dImgUrl = do
     print "DRAW"
     GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
     GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
+  #ifdef ghcjs_HOST_OS
     ctx <- fromJSValUnchecked =<< getContext htmlCanv "2d"
+  #else
+    ctx <- undefined -- TODO - when webkitgtk supports getting 2d context
+  #endif
     drawImage ctx (Just htmlImg) 0 0
 
 -------------------------------------------------------------------------------
@@ -128,6 +143,14 @@ data JSVal
 data FileReader
 data CanvasRenderingContext2D
 data UIEvent
+class IsBlob a
+
+instance IsBlob File
+
+class FromJSVal a
+
+readAsDataURL :: IsBlob blob => FileReader -> Maybe blob -> IO ()
+readAsDataURL = error "readAsDataURL is only available to ghcjs"
 
 getContext :: HTMLCanvasElement -> String -> IO JSVal
 getContext = undefined
@@ -135,10 +158,11 @@ getContext = undefined
 castToCanvasRenderingContext2D :: IsGObject obj => obj -> CanvasRenderingContext2D
 castToCanvasRenderingContext2D = undefined
 
-drawImage :: CanvasRenderingContext2D -> Maybe HTMLImageElement -> Float -> Float -> IO ()
+drawImage :: CanvasRenderingContext2D -> Maybe HTMLImageElement
+          -> Float -> Float -> IO ()
 drawImage = undefined
 
-fromJSValUnchecked :: JSVal -> IO CanvasRenderingContext2D
+fromJSValUnchecked :: FromJSVal a => JSVal -> IO a
 fromJSValUnchecked = undefined
 
 newFileReader :: IO FileReader
