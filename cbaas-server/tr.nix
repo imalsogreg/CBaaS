@@ -16,7 +16,6 @@ reflex-platform.ghc.override {
      servant-foreign = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-foreign) {});
      servant-server = reflex-platform.lib.dontCheck (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-server) {});
      servant-blaze = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant/servant-blaze) {});
-     servant-matlab = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-matlab) {});
 
      websockets-snap = (self.callPackage (reflex-platform.cabal2nixResult ../deps/websockets-snap) {});
 

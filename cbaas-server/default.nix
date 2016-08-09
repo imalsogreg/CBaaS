@@ -5,7 +5,7 @@
 , http-api-data, JuicyPixels, lens, map-syntax, monad-control
 , monad-logger, mtl, optparse-applicative, process, QuickCheck
 , readable, resource-pool, servant, servant-docs, servant-js
-, servant-matlab, servant-snap, snap, snap-core
+, servant-snap, snap, snap-core
 , snap-loader-dynamic, snap-loader-static, snap-server
 , snaplet-postgresql-simple, stdenv, stm, text, time, transformers
 , transformers-base, unagi-chan, unix, unordered-containers
@@ -22,7 +22,7 @@ mkDerivation {
     configurator containers deepseq directory filepath free
     generics-sop groundhog groundhog-th heist http-api-data JuicyPixels
     lens map-syntax monad-control mtl optparse-applicative process
-    resource-pool servant servant-docs servant-js servant-matlab snap
+    resource-pool servant servant-docs servant-js snap
     snap-core stm text time transformers transformers-base unagi-chan
     unix uri-bytestring uuid vector websockets websockets-snap
   ];
@@ -32,7 +32,7 @@ mkDerivation {
     generics-sop groundhog groundhog-postgresql groundhog-th heist
     http-api-data JuicyPixels lens map-syntax monad-control
     monad-logger mtl optparse-applicative process readable
-    resource-pool servant servant-matlab servant-snap snap snap-core
+    resource-pool servant servant-snap snap snap-core
     snap-loader-dynamic snap-loader-static snap-server
     snaplet-postgresql-simple stm text time transformers
     transformers-base unix uri-bytestring uuid vector websockets

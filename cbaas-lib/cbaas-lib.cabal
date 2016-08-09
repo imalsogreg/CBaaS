@@ -38,7 +38,6 @@ library
                      , servant >= 0.5
                      , servant-docs >= 0.5
                      , servant-js >= 0.5 && < 0.6
-                     , servant-matlab
                      , mtl >= 2.2.1 && < 2.3
                      , resource-pool
                      , stm
