@@ -4,9 +4,6 @@
 [submodule "deps/snaplet-postgresql-simple"]
 	path = deps/snaplet-postgresql-simple
 	url = http://github.com/mightybyte/snaplet-postgresql-simple
-[submodule "deps/servant-matlab"]
-	path = deps/servant-matlab
-	url = http://github.com/imalsogreg/servant-matlab
 [submodule "deps/websockets-snap"]
 	path = deps/websockets-snap
 	url = https://github.com/imalsogreg/websockets-snap
@@ -19,6 +16,3 @@
 [submodule "deps/yaml-ghcjs"]
 	path = deps/yaml-ghcjs
 	url = https://github.com/imalsogreg/yaml-ghcjs
-[submodule "deps/servant"]
-	path = deps/servant
-	url = https://github.com/haskell-servant/servant
