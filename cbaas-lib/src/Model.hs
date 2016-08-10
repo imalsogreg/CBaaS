@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -24,10 +25,11 @@ import qualified Data.Text.Lazy as TL
 import Data.Text.Encoding
 import qualified Data.Aeson as A
 import qualified Data.Vector as V
+#ifndef __GHCJS__
 import Database.Groundhog
+#endif
 import Database.Groundhog.TH hiding (defaultCodegenConfig)
 import Generics.SOP
-import Generics.SOP.NFData
 import GHC.Generics
 import GHC.TypeLits
 import Text.Read
@@ -124,8 +126,11 @@ instance A.FromJSON PrimComplex where
     return (PComplex (r :+ i))
   parseJSON _ = mzero
 
-instance NFData Val where
-  rnf = grnf
+-- From basic-sop (not compiling under ghc8)
+-- instance NFData Val where
+--   rnf = grnf
+instance NFData Val
+
 
 instance A.ToJSON Val
 instance A.FromJSON Val
@@ -205,9 +210,11 @@ instance Model.FromVal (Image PixelRGBA8) where
   fromVal (Model.VImage (Model.ModelImage i)) = i
   fromVal x = error $ "Couldn't cast to image: " ++ show x
 
+#ifndef __GHCJS__
 mkPersist ghCodeGen [groundhog|
   - primitive: Type
-    representation: showread
+    converter: showReadConverter
   - primitive: Val
-    representation: showread
+    converter: showReadConverter
 |]
+#endif

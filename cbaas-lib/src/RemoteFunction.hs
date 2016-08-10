@@ -1,3 +1,4 @@
+{-# language CPP               #-}
 {-# language GADTs             #-}
 {-# language QuasiQuotes       #-}
 {-# language TypeFamilies      #-}
@@ -12,7 +13,10 @@ module RemoteFunction where
 import Data.Aeson
 import GHC.Generics
 import Data.Text
+#ifndef __GHCJS__
 import Database.Groundhog
+#endif
+import Database.Groundhog.Core
 import Database.Groundhog.TH
 import Model
 import Tag
@@ -28,7 +32,9 @@ data FunctionTag = FunctionTag
   , ftTag      :: DefaultKey Tag
   }
 
+#ifndef __GHCJS__
 mkPersist defaultCodegenConfig [groundhog|
  - entity: Function
  - entity: FunctionTag
 |]
+#endif

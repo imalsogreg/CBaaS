@@ -16,3 +16,6 @@
 [submodule "deps/yaml-ghcjs"]
 	path = deps/yaml-ghcjs
 	url = https://github.com/imalsogreg/yaml-ghcjs
+[submodule "deps/groundhog-ghcjs"]
+	path = deps/groundhog-ghcjs
+	url = https://github.com/imalsogreg/groundhog-ghcjs
