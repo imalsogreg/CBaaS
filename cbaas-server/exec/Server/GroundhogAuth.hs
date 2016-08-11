@@ -72,7 +72,7 @@ import           Web.ClientSession (getKey)
 
 
 instance NeverNull UserId
-instance NeverNull HashedPassword
+instance NeverNull Password
 
 instance PersistField UserId where
     persistName _ = "UserId"
@@ -83,15 +83,17 @@ instance PersistField UserId where
     dbType _ _ = DbTypePrimitive DbString False Nothing Nothing
 
 instance PrimitivePersistField UserId where
-    toPrimitivePersistValue proxy (UserId a) = toPrimitivePersistValue proxy a
-    fromPrimitivePersistValue proxy v = UserId $ fromPrimitivePersistValue proxy v
+    toPrimitivePersistValue (UserId a) = toPrimitivePersistValue a
+    fromPrimitivePersistValue v = UserId $ fromPrimitivePersistValue v
 
-instance PersistField HashedPassword where
+instance PersistField Password where
     persistName _ = "HashedPassword"
-    toPersistValues (HashedPassword bs) = primToPersistValue $ T.decodeUtf8 bs
+    toPersistValues = case pw of
+      Encrypted bs -> primToPersistValue $ T.decodeUtf8 bs
+      ClearText _  -> error "Attempted to write ClearText password to the database"
     fromPersistValues pvs = do
       (a,vs) <- primFromPersistValue pvs
-      return (HashedPassword $ T.encodeUtf8 a, vs)
+      return (Encrypted $ T.encodeUtf8 a, vs)
     dbType _ _ = DbTypePrimitive DbString False Nothing Nothing
 
 mkPersist (defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle })
@@ -208,7 +210,7 @@ keyToIntegral
     => Key a b
     -> i
 keyToIntegral =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
+    fromPrimitivePersistValue . toPrimitivePersistValue
 
 
 -------------------------------------------------------------------------------
@@ -227,5 +229,4 @@ integralToKey
     => i
     -> Key a b
 integralToKey =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
-
+    fromPrimitivePersistValue . toPrimitivePersistValue
