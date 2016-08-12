@@ -2,6 +2,7 @@
 
 {-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -88,7 +89,7 @@ instance PrimitivePersistField UserId where
 
 instance PersistField Password where
     persistName _ = "HashedPassword"
-    toPersistValues = case pw of
+    toPersistValues pw = case pw of
       Encrypted bs -> primToPersistValue $ T.decodeUtf8 bs
       ClearText _  -> error "Attempted to write ClearText password to the database"
     fromPersistValues pvs = do
@@ -100,6 +101,31 @@ mkPersist (defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle })
   [groundhog|
     - entity: AuthUser
       dbName: snap_auth_user
+      constructors:
+        - name: AuthUser
+          fields:
+            - name: userId
+            - name: userLogin
+            - name: userEmail
+            - name: userPassword
+            - name: userActivatedAt
+            - name: userSuspendedAt
+            - name: userRememberToken
+            - name: userLoginCount
+            - name: userFailedLoginCount
+            - name: userLockedOutUntil
+            - name: userCurrentLoginAt
+            - name: userLastLoginAt
+            - name: userCurrentLoginIp
+            - name: userLastLoginIp
+            - name: userCreatedAt
+            - name:  userUpdatedAt
+            - name: userResetToken
+            - name: userResetRequestedAt
+            - name: userRoles
+              converter: showReadConverter
+            - name: userMeta
+              converter: showReadConverter
   |]
 
 data GroundhogAuthManager = GroundhogAuthManager
@@ -114,11 +140,12 @@ initGroundhogAuth
   -> Pool Postgresql -- ^ The groundhog snaplet
   -> SnapletInit b (AuthManager b)
 initGroundhogAuth sess pool = makeSnaplet "groundhog-auth" desc datadir $ do
-    authSettings <- authSettingsFromConfig
+    authSettings :: AuthSettings <- authSettingsFromConfig
     key <- liftIO $ getKey (asSiteKey authSettings)
     let manager = GroundhogAuthManager pool
-    let migrateDB = runMigration $ migrate (undefined :: AuthUser)
-    liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) pool)
+    -- let migrateDB = runMigration $ migrate (undefined :: AuthUser)
+    -- liftIO $ runNoLoggingT (withPostgresqlPool (runDbPersist migrateDB) pool)
+    -- liftIO $ withPostgresqlPool authSettings pool _
     rng <- liftIO mkRNG
     return $ AuthManager
       { backend = manager
@@ -148,7 +175,7 @@ runGH
     => Pool Postgresql
     -> DbPersist Postgresql (NoLoggingT m) a
     -> m a
-runGH pool action = runNoLoggingT (withConn (runDbPersist action) pool)
+runGH pool action = undefined -- runNoLoggingT (withConn (runDbPersist action) pool)
 
 ------------------------------------------------------------------------------
 -- |

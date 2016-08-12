@@ -17,7 +17,6 @@ library
                      , aeson >= 0.9 && < 1.1
                      , async
                      , base64-bytestring
-                     , basic-sop >= 0.2 && < 0.3
                      , bytestring >=0.10 && <0.11
                      , cbaas-lib
                      , configurator
@@ -68,7 +67,6 @@ library
 executable cbaas-server
  build-depends:       base >= 4.8 && < 4.10
                     , aeson
-                    , basic-sop
                     , base64-bytestring
                     , bytestring
                     , cbaas-lib
@@ -134,7 +132,6 @@ test-suite spec
   main-is: Spec.hs
   build-depends: base == 4.*, 
                  aeson,
-                 basic-sop >= 0.2 && < 0.3,
                  cbaas-lib,
                  cbaas-server,
                  generics-sop,

@@ -22,7 +22,7 @@ library
                    Frontend.WebcamWidget
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.8 && <4.9
+  build-depends:       base >=4.8 && <4.10
                      , aeson
                      , base64-bytestring
                      , bytestring
@@ -30,7 +30,7 @@ library
                      , containers
                      , data-default
                      , ghcjs-dom
-                     , groundhog-th >= 0.7.1
+                     , groundhog-th
                      , JuicyPixels
                      , reflex
                      , reflex-dom

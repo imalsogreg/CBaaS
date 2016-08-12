@@ -83,7 +83,7 @@ keyToIntegral
     => Key a b
     -> i
 keyToIntegral =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
+    fromPrimitivePersistValue . toPrimitivePersistValue
 
 
 -------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ integralToKey
     => i
     -> Key a b
 integralToKey =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
+    fromPrimitivePersistValue . toPrimitivePersistValue
 
 
 instance PersistField U.UUID where
@@ -112,8 +112,8 @@ instance PersistField U.UUID where
   dbType _ _ = DbTypePrimitive DbString False Nothing Nothing
 
 instance PrimitivePersistField U.UUID where
-  toPrimitivePersistValue p u = toPrimitivePersistValue p (show u)
-  fromPrimitivePersistValue p x = read (fromPrimitivePersistValue p x)
+  toPrimitivePersistValue u = toPrimitivePersistValue (show u)
+  fromPrimitivePersistValue x = read (fromPrimitivePersistValue x)
 
 ghCodeGen :: CodegenConfig
 ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }
