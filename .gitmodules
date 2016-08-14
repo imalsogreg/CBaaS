@@ -4,9 +4,6 @@
 [submodule "deps/snaplet-postgresql-simple"]
 	path = deps/snaplet-postgresql-simple
 	url = http://github.com/mightybyte/snaplet-postgresql-simple
-[submodule "deps/servant-matlab"]
-	path = deps/servant-matlab
-	url = http://github.com/imalsogreg/servant-matlab
 [submodule "deps/websockets-snap"]
 	path = deps/websockets-snap
 	url = https://github.com/imalsogreg/websockets-snap
@@ -19,6 +16,12 @@
 [submodule "deps/yaml-ghcjs"]
 	path = deps/yaml-ghcjs
 	url = https://github.com/imalsogreg/yaml-ghcjs
-[submodule "deps/servant"]
-	path = deps/servant
-	url = https://github.com/haskell-servant/servant
+[submodule "deps/groundhog-ghcjs"]
+	path = deps/groundhog-ghcjs
+	url = https://github.com/imalsogreg/groundhog-ghcjs
+[submodule "deps/snap-loader-static"]
+	path = deps/snap-loader-static
+	url = https://github.com/snapframework/snap-loader-static
+[submodule "deps/snap-loader-dynamic"]
+	path = deps/snap-loader-dynamic
+	url = https://github.com/snapframework/snap-loader-dynamic

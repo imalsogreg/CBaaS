@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric     #-}
 
@@ -17,9 +18,11 @@ import           Data.Monoid
 import           Data.Proxy
 import           Data.Text             (Text, unpack)
 import qualified Data.UUID.Types             as UUID
+#ifndef __GHCJS__
 import           Database.Groundhog
-import           Database.Groundhog.Core
 import           Database.Groundhog.Generic
+#endif
+import           Database.Groundhog.Core
 import           Database.Groundhog.TH
 import           GHC.Generics
 import           Servant.API
@@ -66,9 +69,10 @@ instance FromJSON (EntityID a) where
     Just i  -> return (EntityID i)
   parseJSON _ = mzero
 
+#ifndef __GHCJS__
 instance PrimitivePersistField (EntityID a) where
-  toPrimitivePersistValue _ (EntityID uuid) = PersistString $ show uuid
-  fromPrimitivePersistValue _ s =
+  toPrimitivePersistValue (EntityID uuid) = PersistString $ show uuid
+  fromPrimitivePersistValue s =
     let pDecodeString x = case UUID.fromString x of
             Just i -> EntityID i
             Nothing -> error $ "Error calling fromString on " ++ show x
@@ -83,6 +87,7 @@ instance PersistField (EntityID a) where
   dbType db _ = case backendName db of
     "postgresql" -> DbTypePrimitive (DbOther $ OtherTypeDef [Left "uuid"]) False Nothing Nothing
     _ -> DbTypePrimitive DbString False Nothing Nothing
+#endif
 
 -- instance ToField (EntityID a) where
 --   toField (EntityID i) = toField i

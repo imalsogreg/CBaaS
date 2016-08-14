@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -16,7 +17,9 @@ import qualified Data.Aeson as A
 import Data.Text
 import Data.UUID.Types
 import qualified Data.UUID.Types as UUID
+#ifndef __GHCJS__
 import Database.Groundhog
+#endif
 import Database.Groundhog.TH
 import Web.HttpApiData
 import EntityID
@@ -59,6 +62,8 @@ instance FromJSON JobResult where
     <*> o .: "job"
   parseJSON _ = mzero
 
+#ifndef __GHCJS__
 mkPersist defaultCodegenConfig [groundhog|
  - entity: JobResult
 |]
+#endif

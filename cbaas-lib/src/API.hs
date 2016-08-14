@@ -16,7 +16,6 @@ import           Data.UUID.Types     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
                                ,Capture, ReqBody, Raw, FormUrlEncoded
                                ,QueryParam, QueryParams)
--- import           Snap.Snaplet.Auth
 import           EntityID
 import           Permissions
 import           WorkerProfile
@@ -37,7 +36,6 @@ type API1 =
             "worker" :> Get '[JSON] WorkerProfileMap
        :<|>
             "callfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
-                      -- :> QueryParam "browser-id" BrowserProfileId
                       :> ReqBody '[JSON] Job :> Post '[JSON] (EntityID Job)
        :<|>
             "jobresult" :> QueryParam "job-id" (EntityID Job) :> Get '[JSON] JobResult

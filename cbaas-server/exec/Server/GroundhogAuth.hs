@@ -2,6 +2,7 @@
 
 {-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs             #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -72,7 +73,7 @@ import           Web.ClientSession (getKey)
 
 
 instance NeverNull UserId
-instance NeverNull HashedPassword
+instance NeverNull Password
 
 instance PersistField UserId where
     persistName _ = "UserId"
@@ -83,21 +84,48 @@ instance PersistField UserId where
     dbType _ _ = DbTypePrimitive DbString False Nothing Nothing
 
 instance PrimitivePersistField UserId where
-    toPrimitivePersistValue proxy (UserId a) = toPrimitivePersistValue proxy a
-    fromPrimitivePersistValue proxy v = UserId $ fromPrimitivePersistValue proxy v
+    toPrimitivePersistValue (UserId a) = toPrimitivePersistValue a
+    fromPrimitivePersistValue v = UserId $ fromPrimitivePersistValue v
 
-instance PersistField HashedPassword where
+instance PersistField Password where
     persistName _ = "HashedPassword"
-    toPersistValues (HashedPassword bs) = primToPersistValue $ T.decodeUtf8 bs
+    toPersistValues pw = case pw of
+      Encrypted bs -> primToPersistValue $ T.decodeUtf8 bs
+      ClearText _  -> error "Attempted to write ClearText password to the database"
     fromPersistValues pvs = do
       (a,vs) <- primFromPersistValue pvs
-      return (HashedPassword $ T.encodeUtf8 a, vs)
+      return (Encrypted $ T.encodeUtf8 a, vs)
     dbType _ _ = DbTypePrimitive DbString False Nothing Nothing
 
 mkPersist (defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle })
   [groundhog|
     - entity: AuthUser
       dbName: snap_auth_user
+      constructors:
+        - name: AuthUser
+          fields:
+            - name: userId
+            - name: userLogin
+            - name: userEmail
+            - name: userPassword
+            - name: userActivatedAt
+            - name: userSuspendedAt
+            - name: userRememberToken
+            - name: userLoginCount
+            - name: userFailedLoginCount
+            - name: userLockedOutUntil
+            - name: userCurrentLoginAt
+            - name: userLastLoginAt
+            - name: userCurrentLoginIp
+            - name: userLastLoginIp
+            - name: userCreatedAt
+            - name:  userUpdatedAt
+            - name: userResetToken
+            - name: userResetRequestedAt
+            - name: userRoles
+              converter: showReadConverter
+            - name: userMeta
+              converter: showReadConverter
   |]
 
 data GroundhogAuthManager = GroundhogAuthManager
@@ -112,11 +140,12 @@ initGroundhogAuth
   -> Pool Postgresql -- ^ The groundhog snaplet
   -> SnapletInit b (AuthManager b)
 initGroundhogAuth sess pool = makeSnaplet "groundhog-auth" desc datadir $ do
-    authSettings <- authSettingsFromConfig
+    authSettings :: AuthSettings <- authSettingsFromConfig
     key <- liftIO $ getKey (asSiteKey authSettings)
     let manager = GroundhogAuthManager pool
-    let migrateDB = runMigration $ migrate (undefined :: AuthUser)
-    liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) pool)
+    -- let migrateDB = runMigration $ migrate (undefined :: AuthUser)
+    -- liftIO $ runNoLoggingT (withPostgresqlPool (runDbPersist migrateDB) pool)
+    -- liftIO $ withPostgresqlPool authSettings pool _
     rng <- liftIO mkRNG
     return $ AuthManager
       { backend = manager
@@ -146,7 +175,7 @@ runGH
     => Pool Postgresql
     -> DbPersist Postgresql (NoLoggingT m) a
     -> m a
-runGH pool action = runNoLoggingT (withConn (runDbPersist action) pool)
+runGH pool action = undefined -- runNoLoggingT (withConn (runDbPersist action) pool)
 
 ------------------------------------------------------------------------------
 -- |
@@ -208,7 +237,7 @@ keyToIntegral
     => Key a b
     -> i
 keyToIntegral =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
+    fromPrimitivePersistValue . toPrimitivePersistValue
 
 
 -------------------------------------------------------------------------------
@@ -227,5 +256,4 @@ integralToKey
     => i
     -> Key a b
 integralToKey =
-    fromPrimitivePersistValue pg . toPrimitivePersistValue pg
-
+    fromPrimitivePersistValue . toPrimitivePersistValue

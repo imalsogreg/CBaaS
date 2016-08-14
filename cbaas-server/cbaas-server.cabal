@@ -13,11 +13,10 @@ build-type:          Simple
 cabal-version:       >= 1.10
 
 library
-  build-depends:       base >=4.8 && <4.9
-                     , aeson >= 0.9 && < 0.11
+  build-depends:       base >=4.8 && <4.10
+                     , aeson >= 0.9 && < 1.1
                      , async
                      , base64-bytestring
-                     , basic-sop >= 0.2 && < 0.3
                      , bytestring >=0.10 && <0.11
                      , cbaas-lib
                      , configurator
@@ -32,24 +31,23 @@ library
                      , heist >= 1.0 && < 1.1
                      , http-api-data >= 0.2 && < 0.3
                      , JuicyPixels >= 3.2.7 && < 3.8
-                     , lens >= 4.8 && < 4.14
+                     , lens >= 4.8 && < 4.15
                      , map-syntax
                      , monad-control
                      , optparse-applicative
-                     , process >=1.2 && <1.3
-                     , servant >= 0.5
+                     , process >=1.2 && <1.6
+                     , servant >= 0.7 && < 0.9
                      , servant-docs >= 0.5
-                     , servant-js >= 0.5 && < 0.6
-                     , servant-matlab >= 0.5 && < 0.6
+                     , servant-js >= 0.5 && < 0.9
                      , snap >= 1.0 && < 1.1
                      , snap-core >= 1.0 && < 1.1
                      , mtl >= 2.2.1 && < 2.3
                      , resource-pool
                      , stm
-                     , transformers >=0.4 && <0.5
+                     , transformers >=0.4 && <0.6
                      , transformers-base
                      , text >=1.2 && < 1.3
-                     , time >=1.5 && <1.6
+                     , time >=1.5 && <1.7
                      , unagi-chan
                      , unix >=2.7 && <2.8
                      , uri-bytestring
@@ -57,7 +55,7 @@ library
                      , uuid >= 1.3.11 && < 1.4
                      , vector
                      , websockets >= 0.9 && < 0.10
-                     , websockets-snap >= 1.0 && < 1.1
+                     , websockets-snap >= 0.10.0.0 && < 0.11
   hs-source-dirs:      src
   exposed-modules:     Browser
                        Worker
@@ -67,9 +65,8 @@ library
   default-language:    Haskell2010
 
 executable cbaas-server
- build-depends:       base >= 4.8 && < 4.9
+ build-depends:       base >= 4.8 && < 4.10
                     , aeson
-                    , basic-sop
                     , base64-bytestring
                     , bytestring
                     , cbaas-lib
@@ -96,15 +93,14 @@ executable cbaas-server
                     , readable
                     , resource-pool
                     , servant >= 0.5
-                    , servant-snap >= 0.5 && < 0.6
-                    , servant-matlab
+                    , servant-snap >= 0.5 && < 0.9
                     , snap >= 1.0
                     , snap-core
                     , snap-loader-dynamic >= 1.0 && < 1.1
                     , snap-loader-static  >= 1.0 && < 1.1
                     , snap-loader-static
                     , snap-server >= 1.0
-                    , snaplet-postgresql-simple
+                    -- , snaplet-postgresql-simple
                     , stm
                     , transformers
                     , transformers-base
@@ -115,7 +111,7 @@ executable cbaas-server
                     , uuid
                     , vector
                     , websockets
-                    , websockets-snap >= 1.0 && < 1.1
+                    , websockets-snap >= 0.10.0.0 && < 0.11
  hs-source-dirs:    exec
  main-is:           ServerMain.hs
  other-modules:     Server.Application
@@ -128,21 +124,6 @@ executable cbaas-server
  ghc-options: -threaded -rtsopts "-with-rtsopts=-N"
  default-language:  Haskell2010
 
-executable pixavg
-  hs-source-dirs: exec
-  main-is:        PixAvg.hs
-  build-depends:  base
-                , wreq
-                , lens
-                , cbaas-lib
-                , cbaas-server
-                , JuicyPixels
-                , lens
-                , optparse-applicative
-                , servant
-                , websockets
-  default-language: Haskell2010
-  ghc-options: -threaded -rtsopts "-with-rtsopts=-N"
 
 test-suite spec
   type: exitcode-stdio-1.0
@@ -151,7 +132,6 @@ test-suite spec
   main-is: Spec.hs
   build-depends: base == 4.*, 
                  aeson,
-                 basic-sop >= 0.2 && < 0.3,
                  cbaas-lib,
                  cbaas-server,
                  generics-sop,
