@@ -42,17 +42,12 @@ webcamWidget = mdo
 
   vid <- fst <$> elDynAttr' "video" vidAttrs (return ())
   streamUrl <- performEvent $ ffor pb $ \() -> liftIO $ do
-    w' <- liftIO currentWindow
-    case w' of
-      Nothing -> Prelude.print "window error" >> Prelude.error "window error"
-      Just win -> do
-        n' <- liftIO $ getNavigator win
-        case n' of
-          Just nav -> do
-            let htmlVid  = castToHTMLVideoElement (_el_element vid)
-            dict <- Dictionary <$> toJSVal_aeson (A.object [T.pack "video" A..= "true"])
-            stream <- getUserMedia nav (Just dict)
-            createObjectURLStream' (Just stream) -- TODO: How to get at global URL object?
+    Just win <- liftIO currentWindow
+    Just nav <- liftIO $ getNavigator win
+    let htmlVid  = castToHTMLVideoElement (_el_element vid)
+    dict <- Dictionary <$> toJSVal_aeson (A.object [T.pack "video" A..= "true"])
+    stream <- getUserMedia nav (Just dict)
+    createObjectURLStream' (Just stream) -- TODO: How to get at global URL object?
 
   performEvent_ $ (liftIO $ Prelude.print "pb") <$ pb
   return ()

@@ -61,6 +61,7 @@ data ImageWidget t = ImageWidget
 defImg :: Img
 defImg = JP.generateImage (\_ _ -> JP.PixelRGBA8 0 0 1 1) 10 10
 
+
 -------------------------------------------------------------------------------
 fileImageLoader :: forall t m .MonadWidget t m
                 => m (Event t (Either String Img, T.Text))
