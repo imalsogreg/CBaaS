@@ -62,12 +62,14 @@ webcamWidget doc = mdo
   streamUrl <- performEvent $ ffor pb $ \() -> liftIO $ do
     Just win <- currentWindow
     Just nav <- getNavigator win
+    uAgent   <- getUserAgent nav
     let htmlVid  = castToHTMLVideoElement (_el_element vid)
     dict <- Dictionary <$> toJSVal_aeson (A.object [T.pack "video" A..= ("true" :: String)])
-    stream <- getUserMedia nav (Just dict)
-    createObjectURLStream' (Just stream) -- TODO: How to get at global URL object?
+    Prelude.print ("TEST" :: T.Text)
+    if "Chrome" `JS.isInfixOf` uAgent
+              then getUserMedia nav (Just dict) >>= \s -> createObjectURLStream' (Just s)
+              else fmap (Just . T.pack . JS.unpack) js_mozGetUserMedia
 
-  -- performEvent_ $ (liftIO $ Prelude.print "pb") <$ pb
   return ()
 
 foreign import javascript unsafe "console.log(Math.pow(10,2));" mytest :: IO ()
@@ -80,7 +82,9 @@ dictionaryFromMap m = do
     O.setProp (JS.pack k) vj dict
   let jv = jsval dict
   fromJSValUnchecked jv
-  -- fmap Dictionary $ toJSVal dict
+
+foreign import javascript interruptible  "navigator.mediaDevices.getUserMedia({'video':true}).then(function(stream){ var u = window.URL.createObjectURL(stream); $c(u); });"
+  js_mozGetUserMedia :: IO JS.JSString
 
 foreign import javascript unsafe "URL[\"createObjectURL\"]($1)"
         js_createObjectURLStream' ::
