@@ -32,6 +32,8 @@ library
                      , ghcjs-dom
                      , groundhog-th
                      , JuicyPixels
+                     , mtl
+                     , ref-tf
                      , reflex
                      , reflex-dom
                      , text
@@ -52,5 +54,6 @@ executable frontend
                  cbaas-lib,
                  cbaas-frontend,
                  reflex,
+                 mtl,
                  reflex-dom,
                  text

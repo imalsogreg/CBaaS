@@ -38,7 +38,6 @@ import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Heist
 import           Snap.Snaplet.Session.Backends.CookieSession
 import           Snap.Util.FileServe
-import           Snap.Snaplet.PostgresqlSimple (getConnectionString)
 import qualified Heist.Interpreted as I
 ------------------------------------------------------------------------------
 import           API
@@ -107,8 +106,9 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
 
     connstr <- liftIO $ decodeUtf8 <$> getConnectionString cfg
     p   <- liftIO $ withPostgresqlPool (T.unpack connstr) 3 return
+    c   <- liftIO $ extractConn (return) p
     liftIO $ print connstr
-    liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) p)
+    liftIO $ runNoLoggingT (withConn (runDbPersist migrateDB) c)
 
     h   <- nestSnaplet "" heist $ heistInit "templates"
     s   <- nestSnaplet "sess" sess $

@@ -1,10 +1,15 @@
+{-# language GADTs #-}
+{-# language FlexibleContexts #-}
 {-# language RecursiveDo #-}
 {-# language LambdaCase  #-}
 {-# language RankNTypes  #-}
+{-# language OverloadedStrings  #-}
 {-# language ScopedTypeVariables  #-}
 
 module Frontend.Function where
 
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Fix (MonadFix)
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -30,26 +35,26 @@ import EntityID
 data FunctionWidget t = FunctionWidget
   { _functionWidget_profile :: Dynamic t Function }
 
-functionWidget :: MonadWidget t m => FunctionWidget t -> m ()
+functionWidget :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m) => FunctionWidget t -> m ()
 functionWidget f = do
   d <- dyn =<< mapDyn functionDetails (_functionWidget_profile f)
   return ()
   where functionDetails fun =
           elClass "div" "function-widget" $ do
-            el "div" (text . T.unpack $ fnName fun)
-            el "div" (text $ show $ fnType fun)
-            mapM_ (elClass "div" "tag" . text . show) (fnTags fun)
+            el "div" (text $ fnName fun)
+            el "div" (text . T.pack . show $ fnType fun)
+            mapM_ (elClass "div" "tag" . text . T.pack . show) (fnTags fun)
 
 
 ------------------------------------------------------------------------------
 -- | A list of functions meant to update with typing in the search box
-functionListing :: forall t m .MonadWidget t m
+functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
                 => Dynamic t (Map.Map T.Text Function)
                 -> Dynamic t T.Text
                 -- TODO: change Function to FunctionInfo
                 --       FunctionInfo might list tags,
                 --       usage history, nWorkers implementing, etc
-                -> m (Event t String)
+                -> m (Event t T.Text)
 functionListing functions sel = mdo
   searchbox <- value <$> elClass "div" "search-box" (textInput def)
   funPredicate :: Dynamic t (T.Text -> Function -> Bool) <- mapDyn funListPredicate searchbox
@@ -64,18 +69,18 @@ functionListing functions sel = mdo
     return (k <$ domEvent Click e)
 
   curSelect <- holdDyn T.empty listing
-  return (T.unpack <$> updated curSelect)
+  return $ updated curSelect
 
  -- TODO: more customizations
-funListPredicate :: String -> T.Text -> v -> Bool
+funListPredicate :: T.Text -> T.Text -> v -> Bool
 funListPredicate s k v
-  | null s    = False
-  | otherwise = s `isInfixOf` T.unpack k
+  | T.null s  = False
+  | otherwise = s `T.isInfixOf` k
 
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
-functionPage :: forall t m.MonadWidget t m => m ()
+functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m) => m ()
 functionPage = mdo
   pb <- getPostBuild
   ws <- webSocket "/api1/browse" (WebSocketConfig wsSends)

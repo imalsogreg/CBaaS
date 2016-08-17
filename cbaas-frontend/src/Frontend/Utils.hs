@@ -1,11 +1,18 @@
 {-# language RecursiveDo #-}
 {-# language RankNTypes  #-}
+{-# language OverloadedStrings  #-}
+{-# language GADTs  #-}
+{-# language FlexibleContexts  #-}
 
 module Frontend.Utils where
 
 import Control.Monad (liftM2)
+import Control.Monad.Fix (MonadFix)
 import Data.Bool
 import Data.Monoid
+import GHC.IORef (IORef)
+import Control.Monad.Ref (MonadRef, Ref)
+import qualified Data.Text as T
 import Reflex
 import Reflex.Dom
 
@@ -18,15 +25,15 @@ data ActionState = Viewing
                  | Saving
                  deriving (Eq)
 
-editableWidget :: MonadWidget t m
-               => LoggedInEditor
-                  -- ^ Build-time: Can the logged in user edit this?
-               -> (Dynamic t ActionState -> m a)
-                  -- ^ Widget construction action with an 'editing?' context
-               -> Event t ()
-                  -- ^ 'Reset after Save' indicator - brings back the 'viewing' state
-               -> m (Dynamic t a, Dynamic t ActionState, Event t ())
-               -- ^ Return the @a@, editing state, and save-request-triggers
+-- editableWidget :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, Ref m ~ IORef, Ref (Performable m) ~ IORef, MonadHold t m, MonadFix m, PerformEvent t m, TriggerEvent t m, HasWebView m, HasWebView (Performable m), PostBuild t m, MonadRef m)
+--                => LoggedInEditor
+--                   -- ^ Build-time: Can the logged in user edit this?
+--                -> (Dynamic t ActionState -> m a)
+--                   -- ^ Widget construction action with an 'editing?' context
+--                -> Event t ()
+--                   -- ^ 'Reset after Save' indicator - brings back the 'viewing' state
+--                -> m (Dynamic t a, Dynamic t ActionState, Event t ())
+--                -- ^ Return the @a@, editing state, and save-request-triggers
 editableWidget isEditor w redraw = mdo
 
   let runEditing =
@@ -48,7 +55,7 @@ editableWidget isEditor w redraw = mdo
             return (e,a)
 
   let auxBtn :: MonadWidget t m
-             => Either String String  -- ^ R Glyph name | L spinner
+             => Either T.Text T.Text  -- ^ R Glyph name | L spinner
              -> (ActionState -> Bool) -- ^ Display?
              -> Dynamic t ActionState -- ^ Current editing state
              -> m (Event t ())        -- ^ Return Click events

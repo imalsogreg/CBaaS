@@ -1,5 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
+import Control.Monad.Trans (lift)
 import qualified Data.Text as T
 import Data.Either
 import Reflex.Dom
@@ -10,7 +13,8 @@ import Frontend.WebcamWidget
 main :: IO ()
 main = mainWidget $ do
   text "Hello"
-  webcamWidget
+  d <- lift askDocument
+  webcamWidget d
   -- loader <- fileImageLoader
   -- displayImg =<< holdDyn (T.pack "") (fmap snd loader)
 

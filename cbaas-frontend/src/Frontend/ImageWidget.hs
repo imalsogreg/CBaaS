@@ -1,7 +1,11 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DataKinds #-}
 
 module Frontend.ImageWidget where
 
@@ -9,7 +13,7 @@ import Data.Monoid
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy.Encoding as TL
 import Control.Monad (liftM)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Codec.Picture as JP
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.ByteString.Base64.Lazy as BL64
@@ -72,10 +76,10 @@ fileImageLoader = do
 
   reader <- liftIO $ newFileReader
   performEvent_ $ ffor fls $ \f -> liftIO $ do
-    print "READ"
+    -- print "READ"
     readAsDataURL reader (Just f)
   imgs <- wrapDomEvent reader (`on` load) $ do
-    liftIO $ print "LOAD"
+    -- liftIO $ print "LOAD"
     res :: T.Text <- liftIO $ fromJSValUnchecked =<< getResult reader
     liftIO $ print res
     let img = fmap JP.convertRGBA8 (JP.decodeImage =<< (B64.decode . T.encodeUtf8 . snd . T.breakOnEnd (T.pack "base64,") $ res))
@@ -93,7 +97,7 @@ fileImageLoader = do
     undefined
 
   #endif
-  return imgs
+  return $ imgs
 
 -------------------------------------------------------------------------------
 viewSingleton :: [a] -> Maybe a
@@ -101,7 +105,7 @@ viewSingleton    [x] =  Just x
 viewSingleton     _  =  Nothing
 
 -------------------------------------------------------------------------------
-imageWidget :: MonadWidget t m => ImageWidgetConfig t -> m (ImageWidget t)
+-- imageWidget :: MonadWidget t m => ImageWidgetConfig t -> m (ImageWidget t)
 imageWidget (ImageWidgetConfig img0 dImg base0 dBase iSrcType) =
   divClass "image-widget" $ mdo
     baseImg <- holdDyn undefined undefined
@@ -109,11 +113,17 @@ imageWidget (ImageWidgetConfig img0 dImg base0 dBase iSrcType) =
     undefined
 
 -------------------------------------------------------------------------------
-displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
+-- displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
+displayImg ::(DomBuilderSpace m ~ GhcjsDomSpace,
+                         HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+                         MonadIO (Performable m),
+                         DomBuilder t m,
+                         PostBuild t m,
+                         PerformEvent t m) => Dynamic t T.Text -> m ()
 displayImg dImgUrl = do
   pb <- getPostBuild
 
-  imgAttrs <- forDyn dImgUrl $ \src -> "src" =: T.unpack src
+  imgAttrs <- forDyn dImgUrl $ \src -> "src" =: src
                                     <> "style" =: "display:none;"
 
   imgEl   <- fst <$> elDynAttr' "img" imgAttrs (return ())
@@ -126,11 +136,11 @@ displayImg dImgUrl = do
   let htmlCanv = castToHTMLCanvasElement (_el_element canv)
 
   performEvent_ $ ffor natSize $ \(w,h) -> liftIO $ do
-    print "DRAW"
+    -- print "DRAW"
     GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
     GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
   #ifdef ghcjs_HOST_OS
-    ctx <- fromJSValUnchecked =<< getContext htmlCanv "2d"
+    ctx <- fromJSValUnchecked =<< getContext htmlCanv ("2d" :: String)
   #else
     ctx <- undefined -- TODO - when webkitgtk supports getting 2d context
   #endif

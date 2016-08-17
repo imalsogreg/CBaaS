@@ -10,6 +10,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 {-|
 
@@ -46,6 +47,7 @@ automatically be created for you the first time you run your application.
 
 module Server.GroundhogAuth
   ( initGroundhogAuth
+  , getConnectionString
   ) where
 
 ------------------------------------------------------------------------------
@@ -55,7 +57,16 @@ import qualified Control.Exception as E
 import           Control.Monad.Trans.Control
 import           Control.Monad.Logger
 import           Control.Monad.Trans
+import           Data.ByteString (ByteString)
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Builder as TB
+import qualified Data.Text.Lazy.Builder.Int as TB
+import qualified Data.Text.Lazy.Builder.RealFloat as TB
+import qualified Data.Configurator as C
+import qualified Data.Configurator.Types as C
+import           Data.Monoid ((<>))
 import           Data.Pool
+import           Data.Ratio (numerator, denominator)
 import           Data.Readable
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -67,6 +78,7 @@ import           Database.Groundhog.TH
 import           Snap
 import           Snap.Snaplet.Auth
 import           Snap.Snaplet.Session
+
 import           Web.ClientSession (getKey)
 --import           Paths_snaplet_groundhog_simple
 ------------------------------------------------------------------------------
@@ -257,3 +269,83 @@ integralToKey
     -> Key a b
 integralToKey =
     fromPrimitivePersistValue . toPrimitivePersistValue
+
+getConnectionString :: C.Config -> IO ByteString
+getConnectionString config = do
+    let params =
+            [ ["host"]
+            , ["hostaddr"]
+            , ["port"]
+            , ["dbname","db"]
+            , ["user"]
+            , ["password","pass"]
+            , ["connection_timeout"]
+            , ["client_encoding"]
+            , ["options"]
+            , ["application_name"]
+            , ["fallback_application_name"]
+            , ["keepalives"]
+            , ["keepalives_idle"]
+            , ["keepalives_interval"]
+            , ["keepalives_count"]
+            , ["sslmode"]
+            , ["sslcompression"]
+            , ["sslcert"]
+            , ["sslkey"]
+            , ["sslrootcert"]
+            , ["sslcrl"]
+            , ["requirepeer"]
+            , ["krbsrvname"]
+            , ["gsslib"]
+            , ["service"]
+            ]
+    connstr <- fmap mconcat $ mapM showParam params
+    extra   <- fmap TB.fromText $ C.lookupDefault "" config "connectionString"
+    return $! T.encodeUtf8 (TL.toStrict (TB.toLazyText (connstr <> extra)))
+  where
+    qt = TB.singleton '\''
+    bs = TB.singleton '\\'
+    sp = TB.singleton ' '
+    eq = TB.singleton '='
+
+    lookupConfig = foldr (\name names -> do
+                            mval <- C.lookup config name
+                            case mval of
+                              Nothing -> names
+                              Just _  -> return mval)
+                         (return Nothing)
+
+    showParam [] = undefined
+    showParam names@(name:_) = do
+      mval :: Maybe C.Value <- lookupConfig names
+      let key = TB.fromText name <> eq
+      case mval of
+        Nothing           -> return mempty
+        Just (C.Bool   x) -> return (key <> showBool x <> sp)
+        Just (C.String x) -> return (key <> showText x <> sp)
+        Just (C.Number x) -> return (key <> showNum  x <> sp)
+        Just (C.List   _) -> return mempty
+
+    showBool x = TB.decimal (fromEnum x)
+
+    nd ratio = (numerator ratio, denominator ratio)
+
+    showNum (nd -> (n,1)) = TB.decimal n
+    showNum x             = TB.formatRealFloat TB.Fixed Nothing
+                             ( fromIntegral (numerator   x)
+                             / fromIntegral (denominator x) :: Double )
+
+    showText x = qt <> loop x
+      where
+        loop (T.break escapeNeeded -> (a,b))
+          = TB.fromText a <>
+              case T.uncons b of
+                Nothing      ->  qt
+                Just (c,b')  ->  escapeChar c <> loop b'
+
+    escapeNeeded c = c == '\'' || c == '\\'
+
+    escapeChar c = case c of
+                     '\'' -> bs <> qt
+                     '\\' -> bs <> bs
+                     _    -> TB.singleton c

@@ -74,6 +74,7 @@ executable cbaas-server
                     , clientsession
                     , configurator
                     , containers
+                    , contravariant
                     , deepseq
                     , directory
                     , filepath
@@ -89,6 +90,7 @@ executable cbaas-server
                     , monad-control
                     , monad-logger
                     , mtl
+                    , postgresql-simple
                     , process
                     , readable
                     , resource-pool

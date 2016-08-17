@@ -68,7 +68,7 @@ serverAuth :: Server UserAPI AppHandler
 serverAuth =
   let loginServer li = with auth $ do
         u <- loginByUsername (_liUsername li)
-                             (encodeUtf8 $ _liPassword li)
+                             (ClearText $ encodeUtf8 $ _liPassword li)
                              (_liRemember li)
         either error return (getUserId =<< first show u)
 
