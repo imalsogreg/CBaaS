@@ -92,6 +92,7 @@ routes = [ ("login"   , with auth handleLoginSubmit)
          , ("logout"  , with auth handleLogout)
          , ("new_user", with auth handleNewUser)
          , ("api1"    , applicationToSnap (serve (Proxy :: Proxy API1) serverAPI))
+         , ("f"       ,  render "function")
          , (""        , serveDirectory "static" )
          , (""        , render "function") -- TODO
          ]
@@ -104,7 +105,9 @@ app = makeSnaplet "app" "An snaplet example application." Nothing $ do
     cfg <- getSnapletUserConfig
     cfg <- C.subconfig "postgresql" <$> getSnapletUserConfig
 
+    liftIO $ print =<< C.getMap cfg
     connstr <- liftIO $ decodeUtf8 <$> getConnectionString cfg
+    liftIO $ print connstr
     p   <- liftIO $ withPostgresqlPool (T.unpack connstr) 3 return
     c   <- liftIO $ extractConn (return) p
     liftIO $ print connstr

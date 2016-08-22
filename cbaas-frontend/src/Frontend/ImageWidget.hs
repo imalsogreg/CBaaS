@@ -42,6 +42,24 @@ type Img = JP.Image JP.PixelRGBA8
 data ImgSource = ImgUrl | FileUpload | Webcam
   deriving (Eq, Show)
 
+data InputImageSource = FileSource | WebcamSource | DrawSource | None
+  deriving (Eq, Show)
+
+data ImageInputWidgetConfig t = ImageInputWidgetConfig
+  { imageInputWidgetConfig_initialInputImageSource :: InputImageSource
+  , imageInputWidgetConfig_setInputImageSource :: Event t InputImageSource
+  , imageInputWidgetConfig_topGeometry :: (Int, Int)
+  }
+
+data ImageInputWidget t = ImageInputWidget
+  { imageInputWidget_image         :: Dynamic t Img
+  , imageInputWidget_screenScaling :: Dynamic t Double
+  }
+
+imageInputWidget :: MonadWidget t m => ImageInputWidgetConfig t -> m (ImageInputWidget t)
+imageInputWidget (ImageInputWidgetConfig src0 dSrc geom) = mdo
+  newImgSrc <- holdDyn src0 dSrc
+  
 -------------------------------------------------------------------------------
 data ImageWidgetConfig t = ImageWidgetConfig
   { imageWidgetConfig_initialImage  :: Img
@@ -70,34 +88,34 @@ defImg = JP.generateImage (\_ _ -> JP.PixelRGBA8 0 0 1 1) 10 10
 fileImageLoader :: forall t m .MonadWidget t m
                 => m (Event t (Either String Img, T.Text))
 fileImageLoader = do
-  fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$> fileInput def
+  fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$>
+                         fileInput def
 
   #ifdef ghcjs_HOST_OS
 
   reader <- liftIO $ newFileReader
   performEvent_ $ ffor fls $ \f -> liftIO $ do
-    -- print "READ"
     readAsDataURL reader (Just f)
   imgs <- wrapDomEvent reader (`on` load) $ do
-    -- liftIO $ print "LOAD"
     res :: T.Text <- liftIO $ fromJSValUnchecked =<< getResult reader
-    liftIO $ print res
-    let img = fmap JP.convertRGBA8 (JP.decodeImage =<< (B64.decode . T.encodeUtf8 . snd . T.breakOnEnd (T.pack "base64,") $ res))
-    liftIO . print $ case img of
-      Right i -> "RIGHT"
-      Left  e -> e
+    let img = fmap JP.convertRGBA8 (JP.decodeImage =<<
+                                    (B64.decode .
+                                     T.encodeUtf8 .
+                                     snd . T.breakOnEnd (T.pack "base64,") $
+                                     res))
     return (img,res)
 
   #else
 
-  -- let x = GHCJS.DOM.File.getName undefined :: IO Int
+  -- TODO: Implement file reading in webkitgtk case
   imgs <- performEvent $ ffor fls $ \f -> liftIO $ do
     fname :: String <- GHCJS.DOM.File.getName f
     print fname
     undefined
 
   #endif
-  return $ imgs
+
+  return imgs
 
 -------------------------------------------------------------------------------
 viewSingleton :: [a] -> Maybe a

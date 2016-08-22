@@ -51,8 +51,8 @@ webcamWidget :: ( DomBuilder t m
                 , PerformEvent t (Performable m)
                 , PerformEvent t m
                 )
-              => Document -> m ()
-webcamWidget doc = mdo
+              => Document -> Dynamic t (Map T.Text T.Text) -> m ()
+webcamWidget doc extraVideoAttrs = mdo
   pb <- getPostBuild
 
   vidAttrs <- holdDyn Nothing streamUrl >>= mapDyn
@@ -65,12 +65,11 @@ webcamWidget doc = mdo
     uAgent   <- getUserAgent nav
     let htmlVid  = castToHTMLVideoElement (_el_element vid)
     dict <- Dictionary <$> toJSVal_aeson (A.object [T.pack "video" A..= ("true" :: String)])
-    Prelude.print ("TEST" :: T.Text)
     if "Chrome" `JS.isInfixOf` uAgent
               then getUserMedia nav (Just dict) >>= \s -> createObjectURLStream' (Just s)
               else fmap (Just . T.pack . JS.unpack) js_mozGetUserMedia
 
-  return ()
+  return vid
 
 foreign import javascript unsafe "console.log(Math.pow(10,2));" mytest :: IO ()
 
