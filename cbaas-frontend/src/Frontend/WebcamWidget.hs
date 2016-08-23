@@ -16,7 +16,6 @@ import Control.Monad.Fix (MonadFix)
 import Control.Monad.Ref (Ref)
 import qualified Data.Aeson as A
 import Data.Foldable
-import qualified Data.JSString as JS
 import qualified Data.Map as Map
 import Data.Maybe
 import Data.Monoid
@@ -32,27 +31,25 @@ import GHCJS.DOM.HTMLVideoElement
 import GHCJS.DOM.MediaStream
 import GHCJS.DOM.URL
 import GHCJS.DOM.URLUtils
-import GHCJS.Marshal
-import GHCJS.Types (jsval)
 #ifdef ghcjs_HOST_OS
+import GHCJS.Marshal
+import qualified Data.JSString as JS
+import GHCJS.Types (jsval)
 import qualified JavaScript.Object as O
 #endif
 
--- webcamWidget :: (DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m, m ~ ImmediateDomBuilderT t (Performable m)) => m ()
--- webcamWidget :: MonadWidget t m => m ()
--- webcamWidget :: (SupportsImmediateDomBuilder t (Performable m), m ~ ImmediateDomBuilderT t (Performable m), PostBuild t (Performable m)) => m ()
 webcamWidget :: ( DomBuilder t m
                 , DomBuilderSpace m ~ GhcjsDomSpace
                 , MonadFix m
                 , MonadHold t m
                 , PostBuild t m
-                -- , m ~ ImmediateDomBuilderT t (Performable m)
                 , MonadIO (Performable m)
                 , PerformEvent t (Performable m)
                 , PerformEvent t m
                 )
-              => Document -> Dynamic t (Map T.Text T.Text) -> m ()
+              => Document -> Dynamic t (Map.Map T.Text T.Text) -> m (El t)
 webcamWidget doc extraVideoAttrs = mdo
+#ifdef ghcjs_HOST_OS
   pb <- getPostBuild
 
   vidAttrs <- holdDyn Nothing streamUrl >>= mapDyn
@@ -68,11 +65,14 @@ webcamWidget doc extraVideoAttrs = mdo
     if "Chrome" `JS.isInfixOf` uAgent
               then getUserMedia nav (Just dict) >>= \s -> createObjectURLStream' (Just s)
               else fmap (Just . T.pack . JS.unpack) js_mozGetUserMedia
-
   return vid
+#else
+    Prelude.error "Only supported by ghcjs"
+#endif
 
+
+#ifdef ghcjs_HOST_OS
 foreign import javascript unsafe "console.log(Math.pow(10,2));" mytest :: IO ()
-
 dictionaryFromMap :: Map.Map String String -> IO Dictionary
 dictionaryFromMap m = do
   dict <- O.create
@@ -96,3 +96,4 @@ createObjectURLStream' ::
 createObjectURLStream' stream
   = (fromMaybeJSString <$>
          (js_createObjectURLStream' (maybeToNullable stream)))
+#endif

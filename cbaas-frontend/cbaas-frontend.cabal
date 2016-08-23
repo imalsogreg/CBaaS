@@ -20,11 +20,13 @@ library
                    Frontend.Utils
                    Frontend.ImageWidget
                    Frontend.WebcamWidget
+                   Frontend.Canvas
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.10
                      , aeson
                      , base64-bytestring
+                     , bifunctors
                      , bytestring
                      , cbaas-lib
                      , containers
@@ -37,6 +39,7 @@ library
                      , reflex
                      , reflex-dom
                      , text
+                     , time
                      , transformers
   if impl(ghcjs)
       build-depends:

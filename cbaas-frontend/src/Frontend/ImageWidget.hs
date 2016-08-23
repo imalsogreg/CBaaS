@@ -9,6 +9,7 @@
 
 module Frontend.ImageWidget where
 
+import Data.Maybe
 import Data.Monoid
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy.Encoding as TL
@@ -29,9 +30,12 @@ import GHCJS.DOM.Types (HTMLInputElement, HTMLImageElement, IsGObject)
 import GHCJS.DOM.FileReader
 import GHCJS.DOM.File
 import GHCJS.DOM.FileList
+import Text.Read
 #ifdef ghcjs_HOST_OS
 import GHCJS.Marshal
+import GHCJS.Types (jsval)
 #endif
+import Frontend.Canvas
 
 import Reflex.Dom hiding (EventName)
 
@@ -56,10 +60,43 @@ data ImageInputWidget t = ImageInputWidget
   , imageInputWidget_screenScaling :: Dynamic t Double
   }
 
-imageInputWidget :: MonadWidget t m => ImageInputWidgetConfig t -> m (ImageInputWidget t)
-imageInputWidget (ImageInputWidgetConfig src0 dSrc geom) = mdo
-  newImgSrc <- holdDyn src0 dSrc
-  
+imageInputWidget :: MonadWidget t m
+                 => ImageInputWidgetConfig t
+                 -> m (ImageInputWidget t)
+imageInputWidget (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
+  elAttr "div" ("class" =: "image-input" <>
+                "style" =: ("width:"  <>
+                            tShow wid <>
+                            "px; height:" <>
+                            tShow hei <> "px;")) $ mdo
+    canv <- drawingArea never def
+    canvasActions <- divClass "input-bar" $ do
+      imgSrcSet <- divClass "input-select" $ do
+        fs     <- fmap (FileSource   <$ ) $ iconButton "file"
+        wc     <- fmap (WebcamSource <$ ) $ iconButton "camera"
+        dr     <- fmap (DrawSource   <$ ) $ iconButton "pencil"
+        holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
+      -- TODO put source-specific controls here
+      return imgSrcSet -- TODO is this return value needed
+    undefined
+  undefined
+
+drawingElements :: MonadWidget t m => El t -> CanvasRenderingContext2D -> m (Event t (HTMLCanvasElement -> CanvasRenderingContext2D -> IO ()))
+drawingElements target ctx = do
+  penIsDown <- holdDyn False $ leftmost [False <$ domEvent Mouseup target
+                                        ,True <$ domEvent Mousedown target]
+  color  <- value <$> textInput def -- TODO actual color picker
+  performEvent_ $ ffor color (\c -> setFillStyle ctx (Just $ jsval c))
+  penWid <- (fmap (fromMaybe 3 . readMaybe . T.unpack) . value) <$> textInput def --TODO: actual width picker
+  undefined -- TODO this should be the touch-enabled drawing area
+
+
+-- TODO implement for real
+iconButton :: (MonadWidget t m) => T.Text -> m (Event t ())
+iconButton iconName = do
+  (d,_) <- elAttr' "div" ("class" =: "icon-button") $ text iconName
+  return (domEvent Click d)
+
 -------------------------------------------------------------------------------
 data ImageWidgetConfig t = ImageWidgetConfig
   { imageWidgetConfig_initialImage  :: Img
