@@ -41,9 +41,6 @@ import GHCJS.DOM.CanvasRenderingContext2D
 import           GHCJS.DOM.Element (touchStart, mouseDown,
                                     mouseMove, touchEnd, touchMove, mouseUp,focus)
 
-canvH = 1000 :: Int -- TODO: these should be arguments to functions, not fake globals
-canvW = 1000 :: Int
-
 -- data CanvasConfig t = CanvasConfig
 --   { canvasConfig_act :: Event t (CanvasElement -> CanvasRenderingContext2D -> IO ())
 --   , canvasConfig_geometry :: (Int,Int)
@@ -101,11 +98,12 @@ data PointAction = PointsStart | PointsEnd | PointsMove | PointsClear
 
 widgetTouches :: MonadWidget t m
               => El t
+              -> Dynamic t Bool
               -> Event t () -- Event to clear the touches history.
                             -- TODO: Finisging a stroke should be an event with the finished strokes,
                             -- rather than a dynamic that holds them until manual clearing like this.
               -> m (WidgetTouches t)
-widgetTouches el clears = do
+widgetTouches el okToDraw clears = do
 
   let e = _element_raw el
 
@@ -119,7 +117,8 @@ widgetTouches el clears = do
   mouseisdown <- holdDyn False (leftmost [True <$ mousestarts, False <$ mouseends])
 
   strokes <- foldDyn modifyStrokes (mempty, mempty)
-             (leftmost [fmap (PointsStart,) starts
+             (gate (current okToDraw ) $
+              leftmost [fmap (PointsStart,) starts
                        ,fmap (PointsStart,) mousestarts
                        ,fmap (PointsMove,) moves
                        ,fmap (PointsMove,) (gate (current mouseisdown) mousemoves)
@@ -187,12 +186,12 @@ tShow :: Show a => a -> T.Text
 tShow = T.pack . show
 
 
-drawingArea :: (MonadWidget t m, PostBuild t m) => Event t () -> DrawingAreaConfig t -> m (DrawingArea t)
-drawingArea touchClears cfg = mdo
+drawingArea :: (MonadWidget t m, PostBuild t m) => Dynamic t Bool -> Event t () -> Event t () -> DrawingAreaConfig t -> m (DrawingArea t)
+drawingArea okToDraw storePixelsFromCanvas touchClears cfg = mdo
 
   pb <- getPostBuild
-  dynText =<< holdDyn "No drawing area postbuild" ("Hello DrawingArea 2" <$ pb)
 
+  let (canvH, canvW) = _drawingAreaConfig_geom cfg
   (cEl,_) <- elAttr' "canvas" ("id" =: "canvas"
                       <> "width"  =: tShow canvW
                       <> "height" =: tShow canvH) $ blank
@@ -201,15 +200,15 @@ drawingArea touchClears cfg = mdo
   img0 <- liftIO $ newImageData' (fromIntegral canvW :: Word) (fromIntegral canvH :: Word)
 
   Just ctx :: Maybe CanvasRenderingContext2D <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: JSString)
-  performEvent_ $ liftIO (clearArea ctx canvEl) <$ _drawingAreaConfig_clear cfg
-  performEvent_ $ liftIO (clearArea ctx canvEl) <$ pb
+  performEvent_ $ liftIO (clearArea canvW canvH ctx canvEl) <$ _drawingAreaConfig_clear cfg
+  performEvent_ $ liftIO (clearArea canvW canvH ctx canvEl) <$ pb
 
-  pixels <- performEvent (liftIO (getCanvasBuffer ctx canvEl) <$ _drawingAreaConfig_send cfg)
+  pixels <- performEvent (liftIO (getCanvasBuffer canvW canvH ctx canvEl) <$ _drawingAreaConfig_send cfg)
   pixels' <- holdDyn img0 pixels
 
 
 
-  touches <- widgetTouches cEl touchClears
+  touches <- widgetTouches cEl okToDraw touchClears
 
   let s = _widgetTouches_finishedStrokes touches
 
@@ -219,12 +218,13 @@ drawingArea touchClears cfg = mdo
   redrawOk <- holdDyn True (leftmost [True <$ redrawGuardOver, False <$ strokeDone])
 
   bkgndDelay <- delay 0 strokeDone
-  backgroundUpdates <- performEvent (ffor (tag (current s) bkgndDelay) $ \strks ->
-    liftIO (recomputeBackground' ctx canvEl strks))
-  background <- holdDyn Nothing $ fmap Just backgroundUpdates
+  backgroundUpdates <- performEvent (ffor (tag (current s) (leftmost [bkgndDelay, [] <$ storePixelsFromCanvas])) $ \strks ->
+    liftIO (recomputeBackground canvW canvH ctx canvEl strks))
+  background <- holdDyn Nothing $ fmap Just $ leftmost [backgroundUpdates]
 
   tInit <- liftIO getCurrentTime
   ticks <- gate (current redrawOk) <$> tickLossy 0.03 tInit
+
 
   let redrawData = (,) <$> fmap Map.elems
                            (current $ _widgetTouches_currentStrokes touches)
@@ -266,30 +266,29 @@ touchCoord :: Touch -> IO ScreenCoord
 touchCoord touch = bisequence (getClientX touch, getClientY touch)
 
 
-getCanvasBuffer :: CanvasRenderingContext2D -> HTMLCanvasElement -> IO ImageData
-getCanvasBuffer ctx el = do
-  d <- getImageData ctx 0 0 (realToFrac canvW) (realToFrac canvH)
+getCanvasBuffer :: Int -> Int -> CanvasRenderingContext2D -> HTMLCanvasElement -> IO ImageData
+getCanvasBuffer wid hei ctx el = do
+  d <- getImageData ctx 0 0 (realToFrac wid) (realToFrac hei)
   maybe (Prelude.error "No imagedata") return d
 
 
-clearArea :: CanvasRenderingContext2D -> HTMLCanvasElement -> IO ()
-clearArea ctx canv = do
+clearArea :: Int -> Int -> CanvasRenderingContext2D -> HTMLCanvasElement -> IO ()
+clearArea wid hei ctx canv = do
   save ctx
   setFillStyle ctx
     (Just $ CanvasStyle $ jsval ("rgba(255,250,255,1)" :: JSString))
-  fillRect ctx 0 0 (realToFrac canvW) (realToFrac canvH)
+  fillRect ctx 0 0 (realToFrac wid) (realToFrac hei)
   restore ctx
 
 
 
-
-recomputeBackground' :: CanvasRenderingContext2D
-                     -> HTMLCanvasElement
-                     -> [[ScreenCoord]]
-                     -> IO ImageData
-recomputeBackground' ctx canv tc = do
+recomputeBackground :: Int -> Int -> CanvasRenderingContext2D
+                    -> HTMLCanvasElement
+                    -> [[ScreenCoord]]
+                    -> IO ImageData
+recomputeBackground wid hei ctx canv tc = do
   save ctx
-  clearArea ctx canv
+  liftIO $ putStrLn "Recompute"
   let c = "hsla(100,50%,50%,1)"
   setStrokeStyle ctx (Just . CanvasStyle . jsval $ pack c)
   forM_ (filter (not . null) tc) $ \((hX, hY):ps) -> do
@@ -297,7 +296,28 @@ recomputeBackground' ctx canv tc = do
     forM_ ps $ \(x1, y1) -> do
       lineTo ctx (fromIntegral x1) (fromIntegral y1)
     stroke ctx
-  Just bs <- getImageData ctx 0 0 (realToFrac canvW) (realToFrac canvH)
+  Just bs <- getImageData ctx 0 0 (realToFrac wid) (realToFrac hei)
+    -- Data.ByteString.Char8.pack <$>
+    -- toDataURL el el (Nothing :: Maybe String)
+  restore ctx
+  return bs
+
+
+recomputeBackground' :: Int -> Int -> CanvasRenderingContext2D
+                     -> HTMLCanvasElement
+                     -> [[ScreenCoord]]
+                     -> IO ImageData
+recomputeBackground' wid hei ctx canv tc = do
+  save ctx
+  clearArea wid hei ctx canv
+  let c = "hsla(100,50%,50%,1)"
+  setStrokeStyle ctx (Just . CanvasStyle . jsval $ pack c)
+  forM_ (filter (not . null) tc) $ \((hX, hY):ps) -> do
+    moveTo ctx (fromIntegral hX) (fromIntegral hY)
+    forM_ ps $ \(x1, y1) -> do
+      lineTo ctx (fromIntegral x1) (fromIntegral y1)
+    stroke ctx
+  Just bs <- getImageData ctx 0 0 (realToFrac wid) (realToFrac hei)
     -- Data.ByteString.Char8.pack <$>
     -- toDataURL el el (Nothing :: Maybe String)
   restore ctx
@@ -314,7 +334,7 @@ redraw' ctx canv (tc,bkg) = do
   t <- getCurrentTime
   case bkg of
     Just _  -> putImageData ctx bkg 0 0
-    Nothing -> clearArea ctx canv
+    Nothing -> return () -- clearArea ctx canv
   -- TODO don't just take one
   forM_ tc $ \cs ->
     forM_ (Prelude.zip cs (Prelude.tail $ cs))

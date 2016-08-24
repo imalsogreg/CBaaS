@@ -27,7 +27,7 @@ import GHCJS.DOM.CanvasRenderingContext2D
 import GHCJS.DOM.EventM
 import GHCJS.DOM.HTMLCanvasElement
 import GHCJS.DOM.HTMLImageElement
-import GHCJS.DOM.Types (Document, HTMLInputElement, HTMLImageElement, IsGObject)
+import GHCJS.DOM.Types (Document, HTMLInputElement, HTMLImageElement, IsGObject, castToHTMLVideoElement)
 import GHCJS.DOM.FileReader
 import GHCJS.DOM.File
 import GHCJS.DOM.FileList
@@ -73,9 +73,9 @@ imageInputWidget :: forall t m.(MonadWidget t m, PerformEvent t (Performable m))
                  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
   elAttr "div" ("class" =: "image-input" <>
-                "style" =: ("width:"  <> tShow wid <> "px; height:" <> tShow hei <> "px;")) $ mdo
-    canv <- drawingArea never def
-    canvasActions :: Event t (Event t CanvasAction)<- divClass "input-bar" $ do
+                "style" =: ("width:"  <> tShow wid <> "px; height:" <> tShow hei <> "px; left:200px;")) $ mdo
+    canv <- drawingArea okToDraw (() <$ afterCanvasActions) never def
+    (canvasActions, imgSrc) <- divClass "input-bar" $ do
       imgSrcSet <- divClass "input-select" $ do
         fs     <- fmap (FileSource   <$ ) $ iconButton "file"
         wc     <- fmap (WebcamSource <$ ) $ iconButton "camera"
@@ -83,14 +83,21 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
         holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
       canvasEvents <- dyn $ ffor imgSrcSet $ \case
         WebcamSource -> do
+          b  <- iconButton "snap"
           wc <- webcamWidget doc (constDyn mempty)
-          return never
+          -- let snapPic = tagDyn ()
+          return $ ffor b $ \() _ ctx -> do
+            drawImageFromVideo ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (100 :: Float) (100 :: Float)
         FileSource -> text "TODO" >> return never
         DrawSource -> text "TODO" >> return never
         NoSource   -> text "TODO" >> return never
-      return canvasEvents -- TODO is this return value needed
+      return (canvasEvents, imgSrcSet) -- TODO is this return value needed
+    afterCanvasActions <- delay 0 flatActions
+    let okToDraw = fmap (== DrawSource) imgSrc
     flatActions :: Event t CanvasAction <- fmap switchPromptlyDyn $ holdDyn never canvasActions
-    performEvent_ $ (fmap (\a -> liftIO $ a undefined undefined) flatActions)
+    let canvEl = castToHTMLCanvasElement $ _element_raw $ _drawingArea_el canv
+    Just ctx :: Maybe CanvasRenderingContext2D <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: JSString)
+    performEvent_ $ (fmap (\a -> liftIO $ a canvEl ctx) flatActions)
     blank
   return $ ImageInputWidget undefined undefined
 
@@ -238,8 +245,8 @@ class FromJSVal a
 readAsDataURL :: IsBlob blob => FileReader -> Maybe blob -> IO ()
 readAsDataURL = error "readAsDataURL is only available to ghcjs"
 
-getContext :: HTMLCanvasElement -> String -> IO JSVal
-getContext = undefined
+-- getContext :: HTMLCanvasElement -> String -> IO JSVal
+-- getContext = undefined
 
 castToCanvasRenderingContext2D :: IsGObject obj => obj -> CanvasRenderingContext2D
 castToCanvasRenderingContext2D = undefined
@@ -257,7 +264,8 @@ newFileReader = undefined
 load :: EventName FileReader UIEvent
 load = undefined
 
-fromJSVal = undefined
+-- fromJSVal = undefined
 getResult = undefined
 
+drawImageFromVideo = undefined
 #endif
