@@ -12,11 +12,13 @@ import Frontend.WebcamWidget
 
 main :: IO ()
 main = mainWidget $ do
-  text "Hello"
+  text "HelloNew"
   d <- lift askDocument
-  webcamWidget d
+  imageInputWidget d def
+  -- webcamWidget d (constDyn mempty)
   -- loader <- fileImageLoader
   -- displayImg =<< holdDyn (T.pack "") (fmap snd loader)
+  blank
 
 
 hush :: Either e a -> Maybe a

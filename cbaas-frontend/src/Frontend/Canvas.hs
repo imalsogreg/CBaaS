@@ -8,10 +8,12 @@
 
 module Frontend.Canvas where
 
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Bitraversable
 import Data.Foldable
+import Data.Default
 import Data.Maybe
+import Data.String (IsString(..))
 import Data.Traversable
 import Data.Monoid
 import qualified Data.Text as T
@@ -19,24 +21,28 @@ import Data.Time
 import Reflex.Dom hiding (restore, save, preventDefault)
 import qualified GHCJS.DOM.MouseEvent as MouseEvent
 #ifdef ghcjs_HOST_OS
+import GHCJS.DOM.ImageData (newImageData')
 import GHCJS.DOM.Touch
 import GHCJS.DOM.TouchEvent
 import GHCJS.DOM.TouchList
 import Data.JSString (JSString, pack)
 import           GHCJS.Marshal (fromJSVal)
 import GHCJS.Types (jsval)
-#endif
 import           GHCJS.DOM.ClientRect (getTop, getLeft)
-import           GHCJS.DOM.EventM
 import           GHCJS.DOM.Types hiding (Event, Element)
+import           GHCJS.DOM.Element (getBoundingClientRect)
+#else
+import GHCJS.DOM.Types hiding (Event)
+#endif
+import           GHCJS.DOM.EventM
 import qualified Data.Map as Map
 import GHCJS.DOM.HTMLCanvasElement
 import GHCJS.DOM.CanvasRenderingContext2D
-import           GHCJS.DOM.Element (getBoundingClientRect, touchStart, mouseDown,
+import           GHCJS.DOM.Element (touchStart, mouseDown,
                                     mouseMove, touchEnd, touchMove, mouseUp,focus)
 
-canvH = 1000 -- TODO: these should be arguments to functions, not fake globals
-canvW = 1000
+canvH = 1000 :: Int -- TODO: these should be arguments to functions, not fake globals
+canvW = 1000 :: Int
 
 -- data CanvasConfig t = CanvasConfig
 --   { canvasConfig_act :: Event t (CanvasElement -> CanvasRenderingContext2D -> IO ())
@@ -50,7 +56,7 @@ canvW = 1000
 -- canvas :: MonadWidget t m => CanvasConfig t -> m (Canvas t)
 -- canvas (CanvasConfig act (wid, hei)) = do
 --   canvEl <- elAttr' "canvas" ("width" =: tShow wid <> "height" =: tShow hei) blank
---   let rawCanvas = castToHTMLCanvasElement (_el_element canvEl)
+--   let rawCanvas = castToHTMLCanvasElement (_element_raw canvEl)
 --   ctx <- liftIO $ getContext rawCanvas ("2d" :: String)
 --   performEvent_ (act rawCanvas ctx)
 --   return $ Canvas rawCanvas
@@ -67,6 +73,9 @@ data DrawingAreaConfig t = DrawingAreaConfig
 
 defDAC :: Reflex t => DrawingAreaConfig t
 defDAC = DrawingAreaConfig never (constant 10) (constant "black") never never (320,240)
+
+instance Reflex t => Default (DrawingAreaConfig t) where
+  def = defDAC
 
 data DrawingArea t = DrawingArea
   { _drawingArea_el      :: El t
@@ -98,7 +107,7 @@ widgetTouches :: MonadWidget t m
               -> m (WidgetTouches t)
 widgetTouches el clears = do
 
-  let e = _el_element el
+  let e = _element_raw el
 
   starts      <- wrapDomEvent e (`on` touchStart) (cbStartOrEnd e)
   mousestarts <- wrapDomEvent e (`on` mouseDown)  (mouseHandler e)
@@ -119,8 +128,8 @@ widgetTouches el clears = do
                        ,(PointsClear, mempty) <$ clears
                        ])
 
-  currents  <- nubDyn <$> mapDyn fst strokes
-  finisheds <- nubDyn <$> mapDyn snd strokes
+  let currents  = uniqDyn $ fmap fst strokes
+      finisheds = uniqDyn $ fmap snd strokes
 
 
   return $ WidgetTouches starts moves ends currents finisheds
@@ -182,19 +191,23 @@ drawingArea :: (MonadWidget t m, PostBuild t m) => Event t () -> DrawingAreaConf
 drawingArea touchClears cfg = mdo
 
   pb <- getPostBuild
+  dynText =<< holdDyn "No drawing area postbuild" ("Hello DrawingArea 2" <$ pb)
 
   (cEl,_) <- elAttr' "canvas" ("id" =: "canvas"
                       <> "width"  =: tShow canvW
                       <> "height" =: tShow canvH) $ blank
 
-  let canvEl = (castToHTMLCanvasElement . _el_element) cEl
-  Just img0 <- getImageData ctx 0 0 (realToFrac canvW) (realToFrac canvH)
+  let canvEl = (castToHTMLCanvasElement . _element_raw) cEl
+  img0 <- liftIO $ newImageData' (fromIntegral canvW :: Word) (fromIntegral canvH :: Word)
 
-  Just ctx <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: String)
+  Just ctx :: Maybe CanvasRenderingContext2D <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: JSString)
   performEvent_ $ liftIO (clearArea ctx canvEl) <$ _drawingAreaConfig_clear cfg
+  performEvent_ $ liftIO (clearArea ctx canvEl) <$ pb
 
   pixels <- performEvent (liftIO (getCanvasBuffer ctx canvEl) <$ _drawingAreaConfig_send cfg)
   pixels' <- holdDyn img0 pixels
+
+
 
   touches <- widgetTouches cEl touchClears
 
@@ -238,7 +251,7 @@ relativeCoords :: MonadWidget t m => El t -> m (Dynamic t (Maybe ScreenCoord))
 relativeCoords el = do
   let moveFunc (x,y) = do
         now <- liftIO getCurrentTime
-        Just cr <- getBoundingClientRect (_el_element el)
+        Just cr <- getBoundingClientRect (_element_raw el)
         t <- fmap floor (getTop cr)
         l <- fmap floor (getLeft cr)
         return $ Just ((fromIntegral $ x - l),(fromIntegral $ y - t))
@@ -263,7 +276,7 @@ clearArea :: CanvasRenderingContext2D -> HTMLCanvasElement -> IO ()
 clearArea ctx canv = do
   save ctx
   setFillStyle ctx
-    (Just $ CanvasStyle $ jsval ("rgba(255,255,255,1)" :: JSString))
+    (Just $ CanvasStyle $ jsval ("rgba(255,250,255,1)" :: JSString))
   fillRect ctx 0 0 (realToFrac canvW) (realToFrac canvH)
   restore ctx
 
@@ -322,7 +335,39 @@ data ImageData
 data TouchList
 data CanvasRenderingContext2D
 data JSString = JSSString String
+instance IsString JSString where
+  fromString = undefined
+data ClientRect
 pack :: String -> JSString
+pack = undefined
 jsval = undefined
 fromJSVal = undefined
+getBoundingClientRect = undefined
+getLeft :: MonadIO m => ClientRect -> m Float
+getLeft = undefined
+getTop :: MonadIO m => ClientRect -> m Float
+getTop = undefined
+getChangedTouches = undefined
+getLength = undefined
+getIdentifier = undefined
+getContext = undefined
+getClientX = undefined
+getClientY = undefined
+item :: MonadIO m => TouchList -> Word -> m (Maybe Touch)
+item = undefined
+getImageData  :: MonadIO m => CanvasRenderingContext2D -> Float -> Float -> Float -> Float -> m (Maybe ImageData)
+getImageData = undefined
+newImageData' = undefined
+save = undefined
+setFillStyle = undefined
+fillRect = undefined
+restore = undefined
+setStrokeStyle = undefined
+moveTo = undefined
+lineTo = undefined
+stroke = undefined
+putImageData = undefined
+beginPath = undefined
+closePath = undefined
+data CanvasStyle = CanvasStyle String
 #endif

@@ -6,6 +6,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Frontend.ImageWidget where
 
@@ -26,16 +27,19 @@ import GHCJS.DOM.CanvasRenderingContext2D
 import GHCJS.DOM.EventM
 import GHCJS.DOM.HTMLCanvasElement
 import GHCJS.DOM.HTMLImageElement
-import GHCJS.DOM.Types (HTMLInputElement, HTMLImageElement, IsGObject)
+import GHCJS.DOM.Types (Document, HTMLInputElement, HTMLImageElement, IsGObject)
 import GHCJS.DOM.FileReader
 import GHCJS.DOM.File
 import GHCJS.DOM.FileList
 import Text.Read
 #ifdef ghcjs_HOST_OS
+import Data.JSString
 import GHCJS.Marshal
-import GHCJS.Types (jsval)
+import GHCJS.Types (jsval, JSString)
+import GHCJS.DOM.Types (CanvasStyle(..))
 #endif
 import Frontend.Canvas
+import Frontend.WebcamWidget
 
 import Reflex.Dom hiding (EventName)
 
@@ -43,10 +47,10 @@ import Reflex.Dom hiding (EventName)
 type Img = JP.Image JP.PixelRGBA8
 
 -------------------------------------------------------------------------------
-data ImgSource = ImgUrl | FileUpload | Webcam
-  deriving (Eq, Show)
+-- data ImgSource = ImgUrl | FileUpload | Webcam
+--   deriving (Eq, Show)
 
-data InputImageSource = FileSource | WebcamSource | DrawSource | None
+data InputImageSource = FileSource | WebcamSource | DrawSource | NoSource
   deriving (Eq, Show)
 
 data ImageInputWidgetConfig t = ImageInputWidgetConfig
@@ -55,41 +59,58 @@ data ImageInputWidgetConfig t = ImageInputWidgetConfig
   , imageInputWidgetConfig_topGeometry :: (Int, Int)
   }
 
+instance Reflex t => Default (ImageInputWidgetConfig t) where
+  def = ImageInputWidgetConfig DrawSource never (640,480)
+
 data ImageInputWidget t = ImageInputWidget
   { imageInputWidget_image         :: Dynamic t Img
   , imageInputWidget_screenScaling :: Dynamic t Double
   }
 
-imageInputWidget :: MonadWidget t m
-                 => ImageInputWidgetConfig t
+imageInputWidget :: forall t m.(MonadWidget t m, PerformEvent t (Performable m))
+                 => Document
+                 -> ImageInputWidgetConfig t
                  -> m (ImageInputWidget t)
-imageInputWidget (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
+imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
   elAttr "div" ("class" =: "image-input" <>
-                "style" =: ("width:"  <>
-                            tShow wid <>
-                            "px; height:" <>
-                            tShow hei <> "px;")) $ mdo
+                "style" =: ("width:"  <> tShow wid <> "px; height:" <> tShow hei <> "px;")) $ mdo
     canv <- drawingArea never def
-    canvasActions <- divClass "input-bar" $ do
+    canvasActions :: Event t (Event t CanvasAction)<- divClass "input-bar" $ do
       imgSrcSet <- divClass "input-select" $ do
         fs     <- fmap (FileSource   <$ ) $ iconButton "file"
         wc     <- fmap (WebcamSource <$ ) $ iconButton "camera"
         dr     <- fmap (DrawSource   <$ ) $ iconButton "pencil"
         holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
-      -- TODO put source-specific controls here
-      return imgSrcSet -- TODO is this return value needed
-    undefined
-  undefined
+      canvasEvents <- dyn $ ffor imgSrcSet $ \case
+        WebcamSource -> do
+          wc <- webcamWidget doc (constDyn mempty)
+          return never
+        FileSource -> text "TODO" >> return never
+        DrawSource -> text "TODO" >> return never
+        NoSource   -> text "TODO" >> return never
+      return canvasEvents -- TODO is this return value needed
+    flatActions :: Event t CanvasAction <- fmap switchPromptlyDyn $ holdDyn never canvasActions
+    performEvent_ $ (fmap (\a -> liftIO $ a undefined undefined) flatActions)
+    blank
+  return $ ImageInputWidget undefined undefined
 
-drawingElements :: MonadWidget t m => El t -> CanvasRenderingContext2D -> m (Event t (HTMLCanvasElement -> CanvasRenderingContext2D -> IO ()))
+type CanvasAction = HTMLCanvasElement -> CanvasRenderingContext2D -> IO ()
+
+drawingElements :: MonadWidget t m => El t -> CanvasRenderingContext2D -> m (Event t CanvasAction)
 drawingElements target ctx = do
   penIsDown <- holdDyn False $ leftmost [False <$ domEvent Mouseup target
                                         ,True <$ domEvent Mousedown target]
-  color  <- value <$> textInput def -- TODO actual color picker
-  performEvent_ $ ffor color (\c -> setFillStyle ctx (Just $ jsval c))
-  penWid <- (fmap (fromMaybe 3 . readMaybe . T.unpack) . value) <$> textInput def --TODO: actual width picker
+  color  <- updated . value <$> textInput def -- TODO actual color picker
+  performEvent_ $ ffor color (\c -> setFillStyle ctx (Just $ CanvasStyle $ jsval ((jsPack $ T.unpack c :: JSString))))
+  -- performEvent_ $ ffor color $ \c -> setFillStyle ctx (Just $ jsval ("rgb(0,0,0)" :: JSString))
+  penWid <- (fmap (fromMaybe (3 :: Int) . readMaybe . T.unpack) . value) <$> textInput def --TODO: actual width picker
   undefined -- TODO this should be the touch-enabled drawing area
 
+#ifdef ghcjs_HOST_OS
+jsPack = Data.JSString.pack
+#else
+jsPack = undefined
+#endif
 
 -- TODO implement for real
 iconButton :: (MonadWidget t m) => T.Text -> m (Event t ())
@@ -97,24 +118,24 @@ iconButton iconName = do
   (d,_) <- elAttr' "div" ("class" =: "icon-button") $ text iconName
   return (domEvent Click d)
 
--------------------------------------------------------------------------------
-data ImageWidgetConfig t = ImageWidgetConfig
-  { imageWidgetConfig_initialImage  :: Img
-  , imageWidgetConfig_setImage      :: Event t Img
-  , imageWidgetConfig_setBaseImage  :: Event t Img
-  , imageWidgetConfig_initialSource :: ImgSource
-  , imageWidgetConfig_setSource     :: Event t ImgSource
-  }
+-- -------------------------------------------------------------------------------
+-- data ImageWidgetConfig t = ImageWidgetConfig
+--   { imageWidgetConfig_initialImage  :: Img
+--   , imageWidgetConfig_setImage      :: Event t Img
+--   , imageWidgetConfig_setBaseImage  :: Event t Img
+--   , imageWidgetConfig_initialSource :: ImgSource
+--   , imageWidgetConfig_setSource     :: Event t ImgSource
+--   }
 
--------------------------------------------------------------------------------
-instance Reflex t => Default (ImageWidgetConfig t) where
-  def = ImageWidgetConfig defImg never never ImgUrl never
+-- -------------------------------------------------------------------------------
+-- instance Reflex t => Default (ImageWidgetConfig t) where
+--   def = ImageWidgetConfig defImg never never ImgUrl never
 
--------------------------------------------------------------------------------
-data ImageWidget t = ImageWidget
-  { imageWidget_image     :: Dynamic t Img
-  , imageWidget_baseImage :: Dynamic t Img
-  }
+-- -------------------------------------------------------------------------------
+-- data ImageWidget t = ImageWidget
+--   { imageWidget_image     :: Dynamic t Img
+--   , imageWidget_baseImage :: Dynamic t Img
+--   }
 
 -------------------------------------------------------------------------------
 defImg :: Img
@@ -159,13 +180,13 @@ viewSingleton :: [a] -> Maybe a
 viewSingleton    [x] =  Just x
 viewSingleton     _  =  Nothing
 
--------------------------------------------------------------------------------
--- imageWidget :: MonadWidget t m => ImageWidgetConfig t -> m (ImageWidget t)
-imageWidget (ImageWidgetConfig img0 dImg base0 dBase iSrcType) =
-  divClass "image-widget" $ mdo
-    baseImg <- holdDyn undefined undefined
-    undefined
-    undefined
+-- -------------------------------------------------------------------------------
+-- -- imageWidget :: MonadWidget t m => ImageWidgetConfig t -> m (ImageWidget t)
+-- imageWidget (ImageWidgetConfig img0 dImg base0 dBase iSrcType) =
+--   divClass "image-widget" $ mdo
+--     baseImg <- holdDyn undefined undefined
+--     undefined
+--     undefined
 
 -------------------------------------------------------------------------------
 -- displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
@@ -178,17 +199,15 @@ displayImg ::(DomBuilderSpace m ~ GhcjsDomSpace,
 displayImg dImgUrl = do
   pb <- getPostBuild
 
-  imgAttrs <- forDyn dImgUrl $ \src -> "src" =: src
-                                    <> "style" =: "display:none;"
-
-  imgEl   <- fst <$> elDynAttr' "img" imgAttrs (return ())
-  let htmlImg = castToHTMLImageElement (_el_element imgEl)
+  imgEl   <- fst <$> elDynAttr' "img" (ffor dImgUrl (\src -> "src" =: src
+                                    <> "style" =: "display:none;")) (return ())
+  let htmlImg = castToHTMLImageElement (_element_raw imgEl)
 
   natSize <- performEvent $ ffor (domEvent Load imgEl) $ \() -> do
     (,) <$> getNaturalWidth htmlImg <*> getNaturalHeight htmlImg
 
   canv <- fst <$> el' "canvas" (return ())
-  let htmlCanv = castToHTMLCanvasElement (_el_element canv)
+  let htmlCanv = castToHTMLCanvasElement (_element_raw canv)
 
   performEvent_ $ ffor natSize $ \(w,h) -> liftIO $ do
     -- print "DRAW"
@@ -207,13 +226,14 @@ readAsBinaryString = error "readAsBinaryString only defined in ghcjs"
 
 data JSVal
 data FileReader
-data CanvasRenderingContext2D
+-- data CanvasRenderingContext2D
 data UIEvent
 class IsBlob a
 
 instance IsBlob File
 
 class FromJSVal a
+
 
 readAsDataURL :: IsBlob blob => FileReader -> Maybe blob -> IO ()
 readAsDataURL = error "readAsDataURL is only available to ghcjs"
@@ -239,4 +259,5 @@ load = undefined
 
 fromJSVal = undefined
 getResult = undefined
+
 #endif
