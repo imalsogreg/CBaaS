@@ -14,7 +14,8 @@ main :: IO ()
 main = mainWidget $ do
   text "HelloNew"
   d <- lift askDocument
-  imageInputWidget d def
+  functionPage d
+  -- imageInputWidget d def
   -- webcamWidget d (constDyn mempty)
   -- loader <- fileImageLoader
   -- displayImg =<< holdDyn (T.pack "") (fmap snd loader)

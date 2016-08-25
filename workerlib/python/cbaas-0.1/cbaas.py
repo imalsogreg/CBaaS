@@ -10,6 +10,7 @@ import tempfile
 from os import remove
 from json import dumps, loads
 import logging
+import thread
 import time
 
 # namespaces (numpy as np)
@@ -37,7 +38,7 @@ class Listener:
                                     on_close   = lambda msg: show_close(msg),
                                     on_message = self._handle_message,
                                     on_error   = show_err,
-                                    on_open    = show_open,
+                                    on_open    = hold_open,
                                     on_ping    = lambda ws, payload: _handle_ping(ws, payload),
                                     on_pong    = lambda ws, payload: _handle_pong(ws, payload)
                                    )
@@ -187,6 +188,15 @@ def _encode_cbaas_value(v):
 def show_open(message):
   print 'CBaaS websocket OPEN (message)'
   print message
+
+
+def hold_open(ws):
+  def run (*args):
+    while True:
+      ws.send("worker ping")
+      time.sleep(1)
+  thread.start_new_thread(run, ())
+
 
 def show_err(ws, e):
   print ('CBaaS websocket ERROR')

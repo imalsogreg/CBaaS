@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language GADTs #-}
 {-# language FlexibleContexts #-}
 {-# language RecursiveDo #-}
@@ -18,6 +19,8 @@ import Data.List (foldl', isInfixOf)
 import qualified Data.Map as Map
 import Data.Monoid
 import qualified Data.Text as T
+import Data.Time (getCurrentTime)
+import GHCJS.DOM.Types (Document)
 import Reflex
 import Reflex.Dom
 import Reflex.Dom.WebSocket
@@ -27,6 +30,10 @@ import RemoteFunction
 import WorkerProfile
 import BrowserProfile
 import EntityID
+#ifdef ghcjs_HOST_OS
+import GHCJS.DOM.Document (getLocation)
+#endif
+import GHCJS.DOM.Location
 
 
 ------------------------------------------------------------------------------
@@ -80,17 +87,21 @@ funListPredicate s k v
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
-functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m) => m ()
-functionPage = mdo
+functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m) => Document -> m ()
+functionPage doc = mdo
   pb <- getPostBuild
-  ws <- webSocket "/api1/browse" (WebSocketConfig wsSends)
+
+  t0 <- liftIO getCurrentTime
+  tick <- tickLossy 1 t0
+  browserURL <- unrelativizeWebSocketUrl doc "/api1/browserupdates"
+  ws <- webSocket browserURL (WebSocketConfig wsSends)
   let msg = decoded (_webSocket_recv ws)
   let x  = msg :: Event t BrowserMessage
 
-  wsSends <- return never -- TODO Send data sometimes?
+  wsSends <- return $ leftmost [["ping"] <$ tick]
 
-  browserId <- holdDyn Nothing $ ffor msg $ \case
-    SetBrowserID i -> Just i
+  browserId <- holdDyn Nothing $ fmapMaybe id $ ffor msg $ \case
+    SetBrowserID i -> Just $ Just i
     _              -> Nothing
 
   workers0 :: Event t WorkerProfileMap <- fmapMaybe id <$> getAndDecode ("/api1/worker" <$ pb)
@@ -100,10 +111,13 @@ functionPage = mdo
   let workersModify :: Event t (WorkerProfileMap -> WorkerProfileMap) = fforMaybe msg $ \case
         WorkerJoined wId wProfile -> Just (EntityMap . Map.insert wId wProfile . unEntityMap)
         WorkerLeft wId            -> Just (EntityMap . Map.delete wId . unEntityMap)
+        _                         -> Nothing
 
   workers :: Dynamic t WorkerProfileMap <- foldDyn ($) (EntityMap mempty) (leftmost [workersInit, workersModify])
   nWorkers :: Dynamic t Int <- mapDyn (F.length . unEntityMap) workers
 
+  display browserId
+  display $ fmap unEntityMap workers
   -- elClass "div" "function-page" $ do
   --   functionListing workers (constDyn 0)
 
@@ -115,3 +129,24 @@ decoded :: (Reflex t, A.FromJSON a)
                    => Event t BS.ByteString
                    -> Event t a
 decoded = fmapMaybe (A.decode . BSL.fromStrict)
+
+
+------------------------------------------------------------------------------
+unrelativizeWebSocketUrl :: (DomBuilder t m, MonadIO m) => Document -> T.Text -> m T.Text
+unrelativizeWebSocketUrl doc s = do
+  (Just loc) <- liftIO $ getLocation doc
+  newProto :: T.Text <- liftIO (getProtocol loc) >>= \case
+    ("https:" :: T.Text) -> return "wss:"
+    "http:"              -> return "ws:"
+  host <- liftIO $ getHost loc
+  path <- if "/" `T.isPrefixOf` s
+          then return ""
+          else liftIO $ getPathname loc
+  return $ newProto <> "//" <> host <> path <> s
+
+#ifndef ghcjs_HOST_OS
+getHost = undefined
+getPathname = undefined
+getLocation = undefined
+getProtocol = undefined
+#endif

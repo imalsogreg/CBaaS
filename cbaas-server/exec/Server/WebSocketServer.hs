@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
 
 module Server.WebSocketServer (
@@ -60,8 +61,9 @@ runBrowser pending browsers workers = do
         WS.sendTextData conn (A.encode r)
 
     listen conn resultsChan = forever $
-      WS.receiveData conn >>= \(d :: ByteString) ->
-        print "Really wasn't expecting messages here."
+      WS.receiveData conn >>= \case
+        ("ping" :: ByteString) -> return ()
+        _                      -> print "Really wasn't expecting messages here."
 
     process conn wsVar wsVar' = do
       (newWorkers, leftWorkers) <- atomically $ do
