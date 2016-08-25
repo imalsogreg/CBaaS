@@ -191,7 +191,7 @@ drawingArea okToDraw storePixelsFromCanvas touchClears cfg = mdo
 
   pb <- getPostBuild
 
-  let (canvH, canvW) = _drawingAreaConfig_geom cfg
+  let (canvW, canvH) = _drawingAreaConfig_geom cfg
   (cEl,_) <- elAttr' "canvas" ("id" =: "canvas"
                       <> "width"  =: tShow canvW
                       <> "height" =: tShow canvH) $ blank
@@ -287,10 +287,10 @@ recomputeBackground :: Int -> Int -> CanvasRenderingContext2D
                     -> [[ScreenCoord]]
                     -> IO ImageData
 recomputeBackground wid hei ctx canv tc = do
-  save ctx
+  -- save ctx
   liftIO $ putStrLn "Recompute"
   let c = "hsla(100,50%,50%,1)"
-  setStrokeStyle ctx (Just . CanvasStyle . jsval $ pack c)
+  -- setStrokeStyle ctx (Just . CanvasStyle . jsval $ pack c)
   forM_ (filter (not . null) tc) $ \((hX, hY):ps) -> do
     moveTo ctx (fromIntegral hX) (fromIntegral hY)
     forM_ ps $ \(x1, y1) -> do
@@ -299,7 +299,7 @@ recomputeBackground wid hei ctx canv tc = do
   Just bs <- getImageData ctx 0 0 (realToFrac wid) (realToFrac hei)
     -- Data.ByteString.Char8.pack <$>
     -- toDataURL el el (Nothing :: Maybe String)
-  restore ctx
+  -- restore ctx
   return bs
 
 
@@ -390,4 +390,5 @@ putImageData = undefined
 beginPath = undefined
 closePath = undefined
 data CanvasStyle = CanvasStyle String
+setLineWidth = undefined
 #endif
