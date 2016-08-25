@@ -11,6 +11,7 @@
 
 module Frontend.WebcamWidget where
 
+import Control.Applicative (liftA2)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Ref (Ref)
@@ -52,8 +53,9 @@ webcamWidget doc extraVideoAttrs = mdo
 #ifdef ghcjs_HOST_OS
   pb <- getPostBuild
 
-  vidAttrs <- holdDyn Nothing streamUrl >>= mapDyn
-    (\u -> "autoplay" =: "true" <> maybe mempty ("src" =:) u)
+  url <- holdDyn Nothing streamUrl
+
+  let vidAttrs = liftA2 (\u extras -> "autoplay" =: "true" <> maybe mempty ("src" =:) u <> extras) url extraVideoAttrs
 
   vid <- fst <$> elDynAttr' "video" vidAttrs (return ())
   streamUrl <- performEvent $ ffor pb $ \() -> liftIO $ do

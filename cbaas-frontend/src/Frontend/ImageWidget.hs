@@ -74,24 +74,26 @@ imageInputWidget :: forall t m.(MonadWidget t m, PerformEvent t (Performable m))
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
   elAttr "div" ("class" =: "image-input" <>
                 "style" =: ("width:"  <> tShow wid <> "px; height:" <> tShow hei <> "px; left:200px;")) $ mdo
-    canv <- drawingArea okToDraw (() <$ afterCanvasActions) never def
+
     (canvasActions, imgSrc) <- divClass "input-bar" $ do
       imgSrcSet <- divClass "input-select" $ do
         fs     <- fmap (FileSource   <$ ) $ iconButton "file"
-        wc     <- fmap (WebcamSource <$ ) $ iconButton "camera"
-        dr     <- fmap (DrawSource   <$ ) $ iconButton "pencil"
+        wc     <- fmap (WebcamSource <$ ) $ iconButton "photo"
+        dr     <- fmap (DrawSource   <$ ) $ iconButton "write"
         holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
       canvasEvents <- dyn $ ffor imgSrcSet $ \case
         WebcamSource -> do
           b  <- iconButton "snap"
-          wc <- webcamWidget doc (constDyn mempty)
-          -- let snapPic = tagDyn ()
+          wc <- webcamWidget doc (constDyn $ "style" =: ("width: " <> tShow (wid `div` 5) <> "px; height: " <> tShow (hei `div` 5) <> "px;"))
           return $ ffor b $ \() _ ctx -> do
-            drawImageFromVideo ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (100 :: Float) (100 :: Float)
+            drawImageFromVideo ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float)
         FileSource -> text "TODO" >> return never
         DrawSource -> text "TODO" >> return never
         NoSource   -> text "TODO" >> return never
       return (canvasEvents, imgSrcSet) -- TODO is this return value needed
+
+    canv <- drawingArea okToDraw (() <$ afterCanvasActions) never def
+
     afterCanvasActions <- delay 0 flatActions
     let okToDraw = fmap (== DrawSource) imgSrc
     flatActions :: Event t CanvasAction <- fmap switchPromptlyDyn $ holdDyn never canvasActions
@@ -109,7 +111,6 @@ drawingElements target ctx = do
                                         ,True <$ domEvent Mousedown target]
   color  <- updated . value <$> textInput def -- TODO actual color picker
   performEvent_ $ ffor color (\c -> setFillStyle ctx (Just $ CanvasStyle $ jsval ((jsPack $ T.unpack c :: JSString))))
-  -- performEvent_ $ ffor color $ \c -> setFillStyle ctx (Just $ jsval ("rgb(0,0,0)" :: JSString))
   penWid <- (fmap (fromMaybe (3 :: Int) . readMaybe . T.unpack) . value) <$> textInput def --TODO: actual width picker
   undefined -- TODO this should be the touch-enabled drawing area
 
@@ -122,7 +123,7 @@ jsPack = undefined
 -- TODO implement for real
 iconButton :: (MonadWidget t m) => T.Text -> m (Event t ())
 iconButton iconName = do
-  (d,_) <- elAttr' "div" ("class" =: "icon-button") $ text iconName
+  (d,_) <- elAttr' "i" ("class" =: (iconName <> " icon")) blank
   return (domEvent Click d)
 
 -- -------------------------------------------------------------------------------
