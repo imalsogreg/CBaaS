@@ -22,6 +22,7 @@ import           WorkerProfile
 import           User
 import           BrowserProfile
 import           Job
+import           Model
 
 
 ------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ type API1 =
        :<|>
             "work" :> QueryParam  "name"     WorkerName
                    :> QueryParam  "function" Text
+                   :> QueryParam  "type"     Type
                    :> Raw
 
 

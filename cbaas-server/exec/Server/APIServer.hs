@@ -49,6 +49,7 @@ import BrowserProfile
 import Browser
 import Job
 import Message
+import Model
 import Server.Utils
 import Server.WebSocketServer
 
@@ -179,17 +180,20 @@ serveBrowserWS = do
   runWebSocketsSnap $ \pending -> runBrowser pending brs wks
 
 
-serveWorkerWS :: Maybe WorkerName -> Maybe Text -> AppHandler ()
-serveWorkerWS (Just wName) (Just fName) = do
+serveWorkerWS :: Maybe WorkerName -> Maybe Text -> Maybe Type -> AppHandler ()
+serveWorkerWS (Just wName) (Just fName) (Just fType) = do
   brs     <- gets _browsers
   wks     <- gets _workers
   liftIO $ print "ServeWorker: about to runWebSockets"
   runWebSocketsSnap $ \pending -> do
     print "Running"
-    runWorker pending (WorkerProfile wName fName) wks brs
-serveWorkerWS Nothing _ = do
+    runWorker pending (WorkerProfile wName (fName, fType)) wks brs
+serveWorkerWS Nothing _ _ = do
   liftIO $ print "No name"
-  writeBS "Please give a worker-name parameter"
-serveWorkerWS _ Nothing = do
+  writeBS "Please give a 'worker' parameter"
+serveWorkerWS _ Nothing _ = do
   liftIO $ print "No function"
-  writeBS "Please give a function-name parameter"
+  writeBS "Please give a 'function' parameter"
+serveWorkerWS _ _ Nothing = do
+  liftIO $ print "No type"
+  writeBS "Please give a 'type' parameter"

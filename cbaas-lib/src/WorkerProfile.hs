@@ -32,6 +32,7 @@ import Database.Groundhog.Generic
 #endif
 import Database.Groundhog.Core
 import Database.Groundhog.TH
+import Text.Read (readMaybe)
 
 import BrowserProfile
 import EntityID
@@ -45,20 +46,23 @@ type WorkerProfileId  = EntityID  WorkerProfile
 
 
 data WorkerProfile = WorkerProfile
-  { wpName         :: WorkerName
-  , wpFunctionName :: Text
+  { wpName     :: WorkerName
+  , wpFunction :: (Text, Type)
   } deriving (Eq, Ord, Show)
 
 instance ToJSON WorkerProfile where
-  toJSON (WorkerProfile (WorkerName n) f) =
+  toJSON (WorkerProfile (WorkerName n) (f,t)) =
     A.object ["name" .= n
              ,"function" .= f
+             ,"type" .= t
              ]
 
 instance FromJSON WorkerProfile where
-  parseJSON (A.Object o) = WorkerProfile
-    <$> o .: "name"
-    <*> o .: "function"
+  parseJSON (A.Object o) = do
+    n <- o .: "name"
+    f <- o .: "function"
+    t <- o .: "type"
+    return $ WorkerProfile n (f,t)
 
 instance FromHttpApiData WorkerName where
   parseUrlPiece = Right . WorkerName
@@ -76,10 +80,10 @@ instance FromJSON WorkerName where
 
 parseWorkerProfile :: Query -> Either String WorkerProfile
 parseWorkerProfile q = do
-  nm <- note "No WorkerProfile name"     $ lookup "name" ps
-  fn <- note "No WorkerProfile function" $ lookup "function" ps
-  return $ WorkerProfile (WorkerName $ decodeUtf8 nm)
-           (decodeUtf8 fn)
+  nm  <- note "No WorkerProfile name"     (lookup "name" ps)
+  fn  <- note "No WorkerProfile function" (lookup "function" ps)
+  fty <- note "No WorkerProfile type" (lookup "type" ps) >>= (note "No parse" . readMaybe . BS.unpack)
+  return $ WorkerProfile (WorkerName $ decodeUtf8 nm) (decodeUtf8 fn, fty)
   where ps = queryPairs q
 
 #ifndef __GHCJS__

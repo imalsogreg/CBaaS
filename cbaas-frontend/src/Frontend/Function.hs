@@ -34,6 +34,7 @@ import EntityID
 import GHCJS.DOM.Document (getLocation)
 #endif
 import GHCJS.DOM.Location
+import Frontend.Expression
 
 
 ------------------------------------------------------------------------------
@@ -118,8 +119,6 @@ functionPage doc = mdo
 
   display browserId
   display $ fmap unEntityMap workers
-  -- elClass "div" "function-page" $ do
-  --   functionListing workers (constDyn 0)
 
   return ()
 

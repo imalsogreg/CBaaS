@@ -12,6 +12,7 @@ from json import dumps, loads
 import logging
 import thread
 import time
+import urllib
 
 # namespaces (numpy as np)
 # context managers
@@ -28,13 +29,15 @@ class DecodeError(Exception):
 class Listener:
     """A work listener for attaching to CBaaS servers"""
 
-    def __init__(self, on_job, domain="localhost", port="9160", key=None, verbose=False, restart=True):
-        self._workerID = None
+    def __init__(self, on_job, type, domain="localhost", port="9160", key=None, verbose=False, restart=True):
+        self._workerID   = None
         self._wsHost     = "ws://" + domain
         self._httpHost   = "http://" + domain
-        self._on_job   = on_job
-        _wsUrl = self._wsHost + '/api1/work?name=test&function=fix'
-        ws = websocket.WebSocketApp(self._wsHost + '/api1/work?name=test&function=fix',
+        self._on_job     = on_job
+        self._type       = type
+        # _wsUrl = self._wsHost + '/api1/work?name=test&function=fix'
+        _wsUrl = self._wsHost + '/api1/work?' + urllib.urlencode({'type': self._type, 'function': 'label', 'name': 'testworker'})
+        ws = websocket.WebSocketApp(_wsUrl, # self._wsHost + '/api1/work?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
                                     on_message = self._handle_message,
                                     on_error   = show_err,

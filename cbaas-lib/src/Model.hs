@@ -1,15 +1,15 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# language FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# language QuasiQuotes       #-}
-{-# language TypeFamilies       #-}
-{-# language FlexibleInstances       #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# language QuasiQuotes                #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# language TypeFamilies               #-}
 
 module Model where
 
@@ -17,10 +17,13 @@ import Control.Applicative ((<|>))
 import Control.DeepSeq
 import Control.Monad (mzero)
 import Data.ByteString
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Base64 as B64
 import Data.Complex
+import Data.Monoid ((<>))
 import Data.Text
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Data.Text.Encoding
 import qualified Data.Aeson as A
@@ -35,6 +38,8 @@ import GHC.TypeLits
 import Text.Read
 import Text.ParserCombinators.ReadPrec
 import Codec.Picture
+import Web.HttpApiData
+
 import EntityID
 import Utils
 
@@ -218,3 +223,21 @@ mkPersist ghCodeGen [groundhog|
     converter: showReadConverter
 |]
 #endif
+
+instance ToHttpApiData Type where
+  toUrlPiece (TFunction a b) = toUrlPiece a <> " -> " <> toUrlPiece b
+  toUrlPiece (TTuple a b) = "(" <> toUrlPiece a <> ", " <> toUrlPiece b <> ")"
+  toUrlPiece x = T.pack $ show x
+  toHeader (TFunction a b) = toHeader a <> " -> " <> toHeader b
+  toHeader (TTuple a b) = "(" <> toHeader a <> ", " <> toHeader b <> ")"
+  toHeader x = BS.pack $ show x
+
+-- TODO: Parse tuple types
+instance FromHttpApiData Type where
+  parseUrlPiece x = case T.words x of
+    (x: "->" : ys) -> do
+      tx   <- parseUrlPiece x
+      tRet <- parseUrlPiece (T.unwords ys)
+      return $ TFunction tx tRet
+    [x] -> note "No read in type" (readMaybe $ T.unpack x)
+    _   -> Left "No parse for type"
