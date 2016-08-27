@@ -67,18 +67,18 @@ class FromVal a where
 -- data Array int a where
 --   Array :: 1 -> [a] -> Array 1 a
 
-data Expr = ELit    Val
-          | EVar    Text
-          | ELambda Text  Expr
-          | EApp    Expr  Expr
-          | EPrim1  Prim1 Expr
-          | EPrim2 Prim2 Expr Expr
-          deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+data Expr a = ELit    a Val
+            | EVar    a Text
+            | ELambda a Text  (Expr a)
+            | EApp    a (Expr a)  (Expr a)
+            | EPrim1  a Prim1 (Expr a)
+            | EPrim2  a Prim2 (Expr a) (Expr a)
+            deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
-instance A.ToJSON Expr
-instance A.FromJSON Expr
+instance A.ToJSON a => A.ToJSON (Expr a)
+instance A.FromJSON a => A.FromJSON (Expr a)
 
-instance NFData Expr
+instance NFData a => NFData (Expr a)
 
 data Type = TDouble
           | TComplex
@@ -89,6 +89,10 @@ data Type = TDouble
           | TTuple Type Type
           | TFunction Type Type
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance NFData Type
+
+
 
 data Prim1 = P1Negate | P1Not
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
@@ -122,7 +126,7 @@ data Val = VDouble Double
          | VMat2C  (V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val),
                     V.Vector (V.Vector Val))
-         | VClosure [(Text,Expr)] Expr
+         | VClosure [(Text,Expr Type)] (Expr Type)
          deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 

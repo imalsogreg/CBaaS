@@ -15,22 +15,22 @@ import qualified Text.Parsec.String as P
 import qualified Text.Parsec.Token as P
 import Model
 
-parseExpr :: T.Text -> Either T.Text Expr
+parseExpr :: T.Text -> Either T.Text (Expr ())
 parseExpr t = first (T.pack . show) $ P.parse expr "expression" (T.unpack t)
 
 
-expr :: P.Parser Expr
+expr :: P.Parser (Expr ())
 expr = lamb <|> P.try app <|> P.buildExpressionParser opTable term
 
-app :: P.Parser Expr
+app :: P.Parser (Expr ())
 app = do
   t1 <- term
   P.spaces
   tN <- P.sepBy1 term P.spaces
-  return $ L.foldl' EApp t1 tN
+  return $ L.foldl' (EApp ()) t1 tN
 
 tokP = P.makeTokenParser P.emptyDef
-opTable = [ [prefix "-" (EPrim1 P1Negate)
+opTable = [ [prefix "-" (EPrim1 () P1Negate)
 --            ,
              -- prefix "log10" (UPrim1 PLog10),
              -- prefix "log" (UPrim1 PLogE),
@@ -39,10 +39,10 @@ opTable = [ [prefix "-" (EPrim1 P1Negate)
              -- postfix "dB" (UPrim1 PToDb)]
 --          , [binary "^" (UPrim2 PPow) AssocLeft
             ]
-          , [binary "*" (EPrim2 P2Prod) P.AssocLeft
+          , [binary "*" (EPrim2 () P2Prod) P.AssocLeft
 --            , binary "/" (UPrim2 PDiv) AssocLeft
             ]
-          , [binary "+" (EPrim2 P2Sum) P.AssocLeft
+          , [binary "+" (EPrim2 () P2Sum) P.AssocLeft
 --            , binary "-" (UPrim2 PDiff) AssocLeft
 --            , binary "->" (UPrim2 PRange) AssocLeft
             ]
@@ -55,14 +55,14 @@ postfix name fun = P.Postfix (do{P.reservedOp tokP name; return fun})
 term = P.try (P.between (P.char '(') (P.char ')') expr
        <|> lamb
        <|> lit
-       <|> (EVar . T.pack <$> varName)) <* P.spaces
+       <|> (EVar () . T.pack <$> varName)) <* P.spaces
 
 varName :: P.Parser String
 varName = P.identifier tokP -- alphanumeric name
      <|> ((('#':) . show)   -- #n widget index style name
           <$> (P.char '#' >> P.natural tokP))
 
-lamb :: P.Parser Expr
+lamb :: P.Parser (Expr ())
 lamb = do
   P.char '\\'
   n <- P.identifier tokP
@@ -70,14 +70,14 @@ lamb = do
   P.string "->"
   P.spaces
   body <- expr
-  return $ ELambda (T.pack n) body
+  return $ ELambda () (T.pack n) body
 
-lit :: P.Parser Expr
+lit :: P.Parser (Expr ())
 lit = do
   n <- P.optionMaybe (P.char '-')
   v <- either fromIntegral id <$>
        P.naturalOrFloat (P.makeTokenParser P.emptyDef)
   case n of
-    Nothing -> return $ ELit $ VDouble v
-    Just _  -> return (ELit $ VDouble $ negate v)
+    Nothing -> return $ ELit () $ VDouble v
+    Just _  -> return (ELit () $ VDouble $ negate v)
 
