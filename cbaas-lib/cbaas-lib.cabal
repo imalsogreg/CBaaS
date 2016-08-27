@@ -25,6 +25,7 @@ library
                      , http-api-data >= 0.2 && < 0.3
                      , JuicyPixels >= 3.2.7 && < 3.8
                      , lens >= 4.8 && < 4.15
+                     , parsec >= 3.1.11 && < 3.2
                      , servant >= 0.7 && < 0.9
                      , servant-docs >= 0.5 && < 0.9
                      , servant-js >= 0.5 && < 0.9
@@ -58,6 +59,7 @@ library
                        Job
                        Message
                        Model
+                       Parse
                        Permissions
                        RemoteFunction
                        Semantics

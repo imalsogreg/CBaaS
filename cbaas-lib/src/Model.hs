@@ -6,6 +6,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# language QuasiQuotes                #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -67,15 +68,26 @@ class FromVal a where
 --   Array :: 1 -> [a] -> Array 1 a
 
 data Expr = ELit    Val
+          | EVar    Text
           | ELambda Text  Expr
           | EApp    Expr  Expr
+          | EPrim1  Prim1 Expr
+          | EPrim2 Prim2 Expr Expr
           deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+data TypedExpr = TypedExpr
+  { teExpr :: Expr
+  , teType :: Maybe Type
+  } deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance (Eq (f Type), Ord (f Type), Show (f Type), Read (f Type)) => A.ToJSON (TypedExpr f)
+instance (Eq (f Type), Ord (f Type), Show (f Type), Read (f Type)) => A.FromJSON (TypedExpr f)
+instance NFData (TypedExpr f)
 
 instance A.ToJSON Expr
 instance A.FromJSON Expr
 
 instance NFData Expr
-
 
 data Type = TDouble
           | TComplex
@@ -86,6 +98,20 @@ data Type = TDouble
           | TTuple Type Type
           | TFunction Type Type
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+data Prim1 = P1Negate | P1Not
+  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance A.ToJSON Prim1
+instance A.FromJSON Prim1
+instance NFData Prim1
+
+data Prim2 = P2And | P2Or | P2Sum | P2Map | P2Prod
+  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance A.ToJSON Prim2
+instance A.FromJSON Prim2
+instance NFData Prim2
 
 instance A.ToJSON Type
 
