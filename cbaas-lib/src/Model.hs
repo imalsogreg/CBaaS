@@ -75,15 +75,6 @@ data Expr = ELit    Val
           | EPrim2 Prim2 Expr Expr
           deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
-data TypedExpr = TypedExpr
-  { teExpr :: Expr
-  , teType :: Maybe Type
-  } deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
-
-instance (Eq (f Type), Ord (f Type), Show (f Type), Read (f Type)) => A.ToJSON (TypedExpr f)
-instance (Eq (f Type), Ord (f Type), Show (f Type), Read (f Type)) => A.FromJSON (TypedExpr f)
-instance NFData (TypedExpr f)
-
 instance A.ToJSON Expr
 instance A.FromJSON Expr
 
