@@ -14,10 +14,12 @@
 
 module Model where
 
+import Codec.Picture
 import Control.Applicative ((<|>))
 import Control.DeepSeq
 import Control.Monad (mzero)
 import Data.ByteString
+import Data.Aeson ((.=),(.:))
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BL
 import qualified Data.ByteString.Base64 as B64
@@ -38,7 +40,7 @@ import GHC.Generics
 import GHC.TypeLits
 import Text.Read
 import Text.ParserCombinators.ReadPrec
-import Codec.Picture
+import URI.ByteString
 import Web.HttpApiData
 
 import EntityID
@@ -67,9 +69,27 @@ class FromVal a where
 -- data Array int a where
 --   Array :: 1 -> [a] -> Array 1 a
 
+data WorkerName = WorkerName { unWorkerName :: Text }
+  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance NFData WorkerName
+
+data WorkerProfile = WorkerProfile
+  { wpName     :: WorkerName
+  , wpFunction :: (Text, Type)
+  } deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+instance NFData WorkerProfile
+
+
+type WorkerProfileMap = EntityMap WorkerProfile
+type WorkerProfileId  = EntityID  WorkerProfile
+
+
 data Expr a = ELit    a Val
             | EVar    a Text
             | ELambda a Text  (Expr a)
+            | ERemote a (WorkerProfileId, WorkerProfile, Text)
             | EApp    a (Expr a)  (Expr a)
             | EPrim1  a Prim1 (Expr a)
             | EPrim2  a Prim2 (Expr a) (Expr a)
@@ -91,7 +111,6 @@ data Type = TDouble
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 instance NFData Type
-
 
 
 data Prim1 = P1Negate | P1Not
@@ -262,3 +281,47 @@ instance FromHttpApiData Type where
       return $ TFunction tx tRet
     [x] -> note "No read in type" (readMaybe $ T.unpack x)
     _   -> Left "No parse for type"
+
+
+
+instance A.ToJSON WorkerProfile where
+  toJSON (WorkerProfile (WorkerName n) (f,t)) =
+    A.object ["name" .= n
+             ,"function" .= f
+             ,"type" .= t
+             ]
+
+instance A.FromJSON WorkerProfile where
+  parseJSON (A.Object o) = do
+    n <- o .: "name"
+    f <- o .: "function"
+    t <- o .: "type"
+    return $ WorkerProfile n (f,t)
+
+instance FromHttpApiData WorkerName where
+  parseUrlPiece = Right . WorkerName
+
+instance A.ToJSON WorkerName where
+  toJSON (WorkerName n) = A.String n
+
+instance A.FromJSON WorkerName where
+  parseJSON (A.String n) = return $ WorkerName n
+  parseJSON _ = mzero
+
+
+parseWorkerProfile :: Query -> Either String WorkerProfile
+parseWorkerProfile q = do
+  nm  <- note "No WorkerProfile name"     (lookup "name" ps)
+  fn  <- note "No WorkerProfile function" (lookup "function" ps)
+  fty <- note "No WorkerProfile type" (lookup "type" ps) >>= (note "No parse" . readMaybe . BS.unpack)
+  return $ WorkerProfile (WorkerName $ decodeUtf8 nm) (decodeUtf8 fn, fty)
+  where ps = queryPairs q
+
+#ifndef __GHCJS__
+-- TODO custom WorkerName instance to avoid showing/reading constructors
+mkPersist ghCodeGen [groundhog|
+  - primitive: WorkerName
+    converter: showReadConverter
+  - entity: WorkerProfile
+|]
+#endif

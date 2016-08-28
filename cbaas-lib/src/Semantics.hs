@@ -12,7 +12,7 @@
 -- Stability    : experimental
 -- Portability  : template haskell
 --
--- The semantics of the CBaaS network (data proxy servers, browsers, 
+-- The semantics of the CBaaS network (data proxy servers, browsers,
 -- and workers) expressed as a Free Monad. The goal is to make the
 -- operation of the network clear. Eventually it would be nice to write
 -- the server itself as an interpreter for this module. Other uses for this
@@ -30,6 +30,7 @@ import Data.UUID.Types
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Model
 import BrowserProfile
 import EntityID
 import Job

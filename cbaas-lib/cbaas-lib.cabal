@@ -64,6 +64,7 @@ library
                        RemoteFunction
                        Semantics
                        Tag
+                       TypeCheck
                        User
                        Utils
                        WorkerProfile

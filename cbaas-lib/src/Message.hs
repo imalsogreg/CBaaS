@@ -6,6 +6,7 @@ module Message where
 import qualified Data.Aeson as A
 import           GHC.Generics
 ------------------------------------------------------------------------------
+import           Model
 import           BrowserProfile
 import           EntityID
 import           Job

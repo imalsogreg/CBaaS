@@ -5,6 +5,7 @@
 
 module EntityID where
 
+import           Control.DeepSeq
 import           Control.Monad         (mzero)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Data.Aeson            as A
@@ -51,6 +52,9 @@ instance FromJSON a => FromJSON (EntityMap a) where
 parseUUID t = case UUID.fromText t of
   Just u  -> return u
   Nothing -> mzero
+
+instance NFData (EntityID a) where
+  rnf (EntityID x) = rnf x
 
 ------------------------------------------------------------------------------
 -- | Convert an ID to JSON. Construct a JSON String value from the

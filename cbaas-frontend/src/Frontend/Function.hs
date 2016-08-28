@@ -88,7 +88,7 @@ funListPredicate s k v
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
-functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m) => Document -> m ()
+functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m, DomBuilderSpace m ~ GhcjsDomSpace) => Document -> m ()
 functionPage doc = mdo
   pb <- getPostBuild
 
@@ -117,12 +117,23 @@ functionPage doc = mdo
   workers :: Dynamic t WorkerProfileMap <- foldDyn ($) (EntityMap mempty) (leftmost [workersInit, workersModify])
   nWorkers :: Dynamic t Int <- mapDyn (F.length . unEntityMap) workers
 
-  display browserId
-  display $ fmap unEntityMap workers
+  let env  :: Dynamic t (Map.Map T.Text (Expr Type)) = ffor workers $ \(EntityMap wm) -> Map.fromList . fmap remoteCallToVal $ Map.toList wm
+                                                       -- Map.mapWithKey (\k v -> remoteCallToVal (k,v)) wm
+      dEnv = ffor (leftmost [updated env, tagDyn env pb]) $ \e -> Map.map Just e
+
+  e <- expression def { _expressionConfig_updateEnvironment =  dEnv }
+  -- display browserId
+  -- display $ fmap unEntityMap workers
+  display env
 
   return ()
 
 type WMap = Map.Map WorkerProfileId WorkerProfile
+
+remoteCallToVal :: (WorkerProfileId, WorkerProfile) -> (T.Text, Expr Type)
+remoteCallToVal (wpId, wp@(WorkerProfile wpName (wpFuncName, wpFuncType))) =
+        (wpFuncName, ERemote wpFuncType (wpId, wp, wpFuncName))
+
 
 decoded :: (Reflex t, A.FromJSON a)
                    => Event t BS.ByteString
