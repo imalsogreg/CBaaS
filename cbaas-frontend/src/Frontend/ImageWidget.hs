@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE JavaScriptFFI #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -10,6 +11,7 @@
 
 module Frontend.ImageWidget where
 
+import qualified Codec.Picture as JP
 import Control.Monad.Fix (MonadFix)
 import Data.Bool
 import qualified Data.Map as Map
@@ -41,6 +43,7 @@ import GHCJS.Marshal
 import GHCJS.Types (jsval, JSString)
 import GHCJS.DOM.Types (CanvasStyle(..))
 #endif
+import Model
 import Frontend.Canvas
 import Frontend.WebcamWidget
 
@@ -86,7 +89,7 @@ imageInputWidget :: forall t m.(PostBuild t m,
                  -> ImageInputWidgetConfig t
                  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
-  elAttr "div" ("class" =: "image-input") $ mdo
+  canv <- elAttr "div" ("class" =: "image-input") $ mdo
 
     (canvasActions, imgSrc) <- divClass "input-bar" $ do
       (imgSrcSet, canvasActions) <- divClass "input-select ui secondary pointing menu" $ do
@@ -130,8 +133,10 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
     let canvEl = castToHTMLCanvasElement $ _element_raw $ _drawingArea_el canv
     Just ctx :: Maybe CanvasRenderingContext2D <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: JSString)
     -- performEvent_ $ (fmap (\a -> liftIO $ a canvEl ctx) flatActions)
-    blank
-  return $ ImageInputWidget undefined undefined
+    return canv
+  img <- holdDyn defImg =<< performEvent (ffor (updated $ _drawingArea_image canv) $ \_ ->
+                                             liftIO $ canvasGetImg (castToHTMLCanvasElement $ _element_raw $ _drawingArea_el canv))
+  return $ ImageInputWidget img undefined
 
 -- type CanvasAction = HTMLCanvasElement -> CanvasRenderingContext2D -> IO ()
 
@@ -200,20 +205,40 @@ iconButton iconName topAttrs = do
 defImg :: Img
 defImg = JP.generateImage (\_ _ -> JP.PixelRGBA8 0 0 1 1) 10 10
 
+-- imagedataToValue :: ImageData -> IO Img
+-- imagedataToValue d = do
+--   bytes <- imagedataGetData 
+--   let Right imgBytes = (B64.decode . T.encodeUtf8 . snd $ T.breakOnEnd "base64," d)
+--       Right img = (JP.decodeImage imgBytes)
+--   return . ELit TModelImage . VImage . ModelImage $ JP.convertRGBA8 img
+
+-- TODO: Move some of this logic into Model (or a new ModelImage module)
+canvasGetImg :: HTMLCanvasElement -> IO Img
+canvasGetImg canv = do
+  putStrLn "CANVAS GET IMG"
+  d <- toDataURL canv (Just "image/jpeg" :: Maybe String)
+  let Right imgBytes = (B64.decode . T.encodeUtf8 . snd $ T.breakOnEnd "base64," d)
+      Right img = (JP.decodeImage imgBytes)
+  return $ JP.convertRGBA8 img
+
+-- #ifdef ghcjs_HOST_OS
+-- foreign import javascript unsafe "($1).data;"
+--   js_imagedataGetData :: ImageData -> UInt8ClampedArray
+-- #endif
 
 -------------------------------------------------------------------------------
 fileImageLoader :: forall t m .(PostBuild t m,
                                 DomBuilder t m,
-                           MonadIO m,
-                           MonadFix m,
-                           MonadIO (Performable m),
-                           TriggerEvent t m,
-                           PerformEvent t m,
-                           HasWebView m,
-                           MonadHold t m,
-                           HasWebView (Performable m),
-                           PerformEvent t (Performable m),
-                           DomBuilderSpace m ~ GhcjsDomSpace)
+                                MonadIO m,
+                                MonadFix m,
+                                MonadIO (Performable m),
+                                TriggerEvent t m,
+                                PerformEvent t m,
+                                HasWebView m,
+                                MonadHold t m,
+                                HasWebView (Performable m),
+                                PerformEvent t (Performable m),
+                                DomBuilderSpace m ~ GhcjsDomSpace)
                 => m (Event t (Either String Img, T.Text))
 fileImageLoader = do
   fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$>
@@ -331,4 +356,8 @@ load = undefined
 getResult = undefined
 
 drawImageFromVideo = undefined
+
+toDataURL :: HTMLCanvasElement -> Maybe String -> IO T.Text
+toDataURL = error "toDataUrl only available in javascript"
+
 #endif

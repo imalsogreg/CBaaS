@@ -43,6 +43,8 @@ import EntityID
 import GHCJS.DOM.Document (getLocation)
 #endif
 import GHCJS.DOM.Location
+
+import Job
 import Frontend.Expression
 import Frontend.ImageWidget
 
@@ -95,6 +97,10 @@ funListPredicate s k v
   | T.null s  = False
   | otherwise = s `T.isInfixOf` k
 
+viewResults resultIds = do
+  results <- getAndDecode $ ffor resultIds $ \(EntityID rId) ->
+    "/api1/jobresult?job-id=" <> tShow rId
+  display =<< foldDyn (:) ([] :: [Maybe JobResult]) results
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
@@ -131,6 +137,11 @@ functionPage doc = mdo
     SetBrowserID i -> Just $ Just i
     _              -> Nothing
 
+  let resultReport = fmapMaybe id $ ffor msg $ \case
+        (JobFinished jobId) -> Just jobId
+        _                   -> Nothing
+  elAttr "div" ("style" =: "border: 1px solid blue") $ viewResults resultReport
+
   workers0 :: Event t WorkerProfileMap <- fmapMaybe id <$> getAndDecode ("/api1/worker" <$ pb)
   let workersInit :: Event t (WorkerProfileMap -> WorkerProfileMap) = ffor workers0 $ \(EntityMap ws) -> const . EntityMap $
         foldl' (\m (k,v) -> Map.insert k v m) mempty (Map.toList ws)
@@ -144,22 +155,26 @@ functionPage doc = mdo
   nWorkers :: Dynamic t Int <- mapDyn (F.length . unEntityMap) workers
 
   let env  :: Dynamic t (Map.Map T.Text (Expr Type)) = ffor workers $ \(EntityMap wm) -> Map.fromList . fmap remoteCallToVal $ Map.toList wm
-                                                       -- Map.mapWithKey (\k v -> remoteCallToVal (k,v)) wm
+      envWithWidgets :: Dynamic t (Map.Map T.Text (Expr Type)) = zipDynWith (<>) env inputWidgets
       dEnv = ffor (leftmost [updated env, tagDyn env pb]) $ \e -> Map.map Just e
 
   e <- expression def { _expressionConfig_updateEnvironment =  dEnv }
 
   go <- button "Evaluate"
 
-  inputWidgets <- listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
+  inputWidgets :: Dynamic t (Map.Map T.Text (Expr Type))<- joinDynThroughMap <$>
+    listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
 
-  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn (_expression_expr e) go)
-  -- display $ fmap unEntityMap workers
-  display env
+  let furnishedExpr :: Dynamic t (Either T.Text (Expr Type)) =
+        zipDynWith (\env' expr' -> resolveWidgetVars env' =<< expr') envWithWidgets (_expression_expr e)
 
-  elAttr "div" ("style" =: "border: 1px solid black") $ do
-    display $ (fmap . fmap) widgetInventory (_expression_expr e)
-    blank
+  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr go)
+
+
+  -- elAttr "div" ("style" =: "border: 1px red solid;") $ display inputWidgets
+  -- elAttr "div" ("style" =: "border: 1px solid black") $ do
+  --   display $ (fmap . fmap) widgetInventory (_expression_expr e)
+  --   blank
 
   return ()
 
@@ -187,6 +202,7 @@ inputWidget doc k dynType = do
     TModelImage -> do
       text (tShow k)
       imWid <- imageInputWidget doc def
+--      display (ModelImage <$> imageInputWidget_image imWid)
       return $ ELit TModelImage . VImage . ModelImage <$> imageInputWidget_image imWid)
   join <$> holdDyn (defVal <$> dynType) inp
 
@@ -232,27 +248,26 @@ widgetInventory expr = case expr of
 
     ap@(EPrim2 p pr a b) -> widgetInventory a <> widgetInventory b
 
-resolveWidgetVars :: Map.Map T.Text (Either T.Text Val)
-                  -> Either T.Text (Expr a)
-                  -> Either T.Text (Expr a)
-resolveWidgetVars env (Left err) = Left err
-resolveWidgetVars env (Right expr) = case expr of
+resolveWidgetVars :: Map.Map T.Text (Expr Type)
+                  -> Expr Type
+                  -> Either T.Text (Expr Type)
+resolveWidgetVars env expr = case expr of
 
     EVar p varName | "#" `T.isPrefixOf` varName -> case Map.lookup varName env of
       Nothing  -> Left $ "No value found for variable: " <> varName
-      Just val -> ELit p <$> val
+      Just val -> Right $ val
 
     v@(EVar _ _) -> Right v
 
-    lm@(ELambda p n b) -> ELambda p n <$> resolveWidgetVars env (Right b)
+    lm@(ELambda p n b) -> ELambda p n <$> resolveWidgetVars env b
 
     r@(ERemote _ _) -> Right r
 
-    ap@(EApp p a b) -> liftA2 (EApp p) (resolveWidgetVars env (Right a)) (resolveWidgetVars env (Right b))
+    ap@(EApp p a b) -> liftA2 (EApp p) (resolveWidgetVars env a) (resolveWidgetVars env b)
 
-    ap@(EPrim1 p pr a) -> EPrim1 p pr <$> resolveWidgetVars env (Right a)
+    ap@(EPrim1 p pr a) -> EPrim1 p pr <$> resolveWidgetVars env a
 
-    ap@(EPrim2 p pr a b) -> liftA2 (EPrim2 p pr) (resolveWidgetVars env (Right a)) (resolveWidgetVars env (Right b))
+    ap@(EPrim2 p pr a b) -> liftA2 (EPrim2 p pr) (resolveWidgetVars env a) (resolveWidgetVars env b)
 
 dumbEval :: (DomBuilder t m,
               PostBuild t m,
@@ -270,7 +285,9 @@ dumbEval env expr = do
   performRequestAsync $ ffor expr $ \case
     EApp _ (ERemote _ ((EntityID wId), wProfile, funcName)) (ELit _ v) ->
       let url = "api1/callfun?worker-id=" <> T.pack (show wId)
-      in  XhrRequest url "POST" def { _xhrRequestConfig_sendData = (T.unpack $ E.decodeUtf8 . BSL.toStrict $ A.encode v)}
+          job = Job funcName v
+      in  XhrRequest "POST"  url def { _xhrRequestConfig_sendData = (T.unpack $ E.decodeUtf8 . BSL.toStrict $ A.encode job)
+                                     , _xhrRequestConfig_headers = "Content-Type" =: "application/json"}
   return ()
 
 

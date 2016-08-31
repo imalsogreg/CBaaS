@@ -92,6 +92,8 @@ data WidgetTouches t = WidgetTouches
   , _widgetTouches_finishedStrokes :: Dynamic t [[ScreenCoord]]
   }
 
+anyTouch :: Reflex t => WidgetTouches t -> Event t ()
+anyTouch (WidgetTouches s m e _ _) = traceEvent "AnyTouch" $ leftmost [() <$ s, () <$ m, () <$ e]
 
 -- Auxiliary tag
 data PointAction = PointsStart | PointsEnd | PointsMove | PointsClear
@@ -225,7 +227,8 @@ drawingArea okToDraw storePixelsFromCanvas touchClears cfg = mdo
   performEvent_ $ liftIO (clearArea canvW canvH ctx canvEl) <$ _drawingAreaConfig_clear cfg
   performEvent_ $ liftIO (clearArea canvW canvH ctx canvEl) <$ pb
 
-  pixels <- performEvent (liftIO (getCanvasBuffer canvW canvH ctx canvEl) <$ _drawingAreaConfig_send cfg)
+  -- TODO: Updating the image pixels 2x per second. Find a better way
+  pixels <- performEvent (liftIO (getCanvasBuffer canvW canvH ctx canvEl) <$ leftmost [() <$ pixTicks, _drawingAreaConfig_send cfg])
   pixels' <- holdDyn img0 pixels
 
 
@@ -247,6 +250,7 @@ drawingArea okToDraw storePixelsFromCanvas touchClears cfg = mdo
   tInit <- liftIO getCurrentTime
   ticks <- gate (current redrawOk) <$> tickLossy 0.03 tInit
 
+  pixTicks <- tickLossy 0.5 tInit
 
   let redrawData = (,) <$> fmap Map.elems
                            (current $ _widgetTouches_currentStrokes touches)
