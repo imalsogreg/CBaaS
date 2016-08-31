@@ -10,6 +10,7 @@
 
 module Frontend.ImageWidget where
 
+import Control.Monad.Fix (MonadFix)
 import Data.Bool
 import qualified Data.Map as Map
 import Data.Maybe
@@ -69,13 +70,23 @@ data ImageInputWidget t = ImageInputWidget
   , imageInputWidget_screenScaling :: Dynamic t Double
   }
 
-imageInputWidget :: forall t m.(MonadWidget t m, PerformEvent t (Performable m))
+imageInputWidget :: forall t m.(PostBuild t m,
+                                DomBuilder t m,
+                                MonadIO m,
+                                MonadFix m,
+                                MonadIO (Performable m),
+                                TriggerEvent t m,
+                                PerformEvent t m,
+                                HasWebView m,
+                                MonadHold t m,
+                                HasWebView (Performable m),
+                                PerformEvent t (Performable m),
+                                DomBuilderSpace m ~ GhcjsDomSpace)
                  => Document
                  -> ImageInputWidgetConfig t
                  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
-  elAttr "div" ("class" =: "image-input" <>
-                "style" =: ("width:"  <> tShow wid <> "px; height:" <> tShow hei <> "px;")) $ mdo
+  elAttr "div" ("class" =: "image-input") $ mdo
 
     (canvasActions, imgSrc) <- divClass "input-bar" $ do
       (imgSrcSet, canvasActions) <- divClass "input-select ui secondary pointing menu" $ do
@@ -124,7 +135,18 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
 
 -- type CanvasAction = HTMLCanvasElement -> CanvasRenderingContext2D -> IO ()
 
-drawingElements :: MonadWidget t m => CanvasRenderingContext2D -> m ()
+drawingElements :: (PostBuild t m,
+                    DomBuilder t m,
+                                MonadIO m,
+                                MonadFix m,
+                                MonadIO (Performable m),
+                                TriggerEvent t m,
+                                PerformEvent t m,
+                                HasWebView m,
+                                MonadHold t m,
+                                HasWebView (Performable m),
+                                PerformEvent t (Performable m),
+                                DomBuilderSpace m ~ GhcjsDomSpace) => CanvasRenderingContext2D -> m ()
 drawingElements ctx = do
   color  <- updated . value <$> textInput def { _textInputConfig_inputType = "color"}-- TODO actual color picker
   performEvent_ $ ffor color (\c -> setStrokeStyle ctx (Just $ CanvasStyle $ jsval ((jsPack $ T.unpack c :: JSString))))
@@ -139,7 +161,18 @@ jsPack = undefined
 #endif
 
 -- TODO implement for real
-iconButton :: (MonadWidget t m) => T.Text -> Dynamic t (Map.Map T.Text T.Text) -> m (Event t ())
+iconButton :: (PostBuild t m,
+               DomBuilder t m,
+                                MonadIO m,
+                                MonadFix m,
+                                MonadIO (Performable m),
+                                TriggerEvent t m,
+                                PerformEvent t m,
+                                HasWebView m,
+                                MonadHold t m,
+                                HasWebView (Performable m),
+                                PerformEvent t (Performable m),
+                                DomBuilderSpace m ~ GhcjsDomSpace) => T.Text -> Dynamic t (Map.Map T.Text T.Text) -> m (Event t ())
 iconButton iconName topAttrs = do
   (d,_) <- elDynAttr' "div" topAttrs $ elAttr "i" ("class" =: (iconName <> " icon")) blank
   return (domEvent Click d)
@@ -169,7 +202,18 @@ defImg = JP.generateImage (\_ _ -> JP.PixelRGBA8 0 0 1 1) 10 10
 
 
 -------------------------------------------------------------------------------
-fileImageLoader :: forall t m .MonadWidget t m
+fileImageLoader :: forall t m .(PostBuild t m,
+                                DomBuilder t m,
+                           MonadIO m,
+                           MonadFix m,
+                           MonadIO (Performable m),
+                           TriggerEvent t m,
+                           PerformEvent t m,
+                           HasWebView m,
+                           MonadHold t m,
+                           HasWebView (Performable m),
+                           PerformEvent t (Performable m),
+                           DomBuilderSpace m ~ GhcjsDomSpace)
                 => m (Event t (Either String Img, T.Text))
 fileImageLoader = do
   fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$>

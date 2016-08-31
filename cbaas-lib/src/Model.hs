@@ -95,6 +95,15 @@ data Expr a = ELit    a Val
             | EPrim2  a Prim2 (Expr a) (Expr a)
             deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
+instance Functor Expr where
+  fmap f (ELit a v)  = ELit (f a) v
+  fmap f (EVar a n)  = EVar (f a) n
+  fmap f (ELambda a n b) = ELambda (f a) n (fmap f b)
+  fmap f (ERemote a r) = ERemote (f a) r
+  fmap f (EApp a eA eB) = EApp (f a) (fmap f eA) (fmap f eB)
+  fmap f (EPrim1 a p e) = EPrim1 (f a) p (fmap f e)
+  fmap f (EPrim2 a p eA eB) = EPrim2 (f a) p (fmap f eA) (fmap f eB)
+
 instance A.ToJSON a => A.ToJSON (Expr a)
 instance A.FromJSON a => A.FromJSON (Expr a)
 

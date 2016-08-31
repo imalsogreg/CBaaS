@@ -1,6 +1,7 @@
 {-# language CPP #-}
 {-# language GADTs #-}
 {-# language FlexibleContexts #-}
+{-# language RankNTypes #-}
 {-# language RecursiveDo #-}
 {-# language LambdaCase  #-}
 {-# language RankNTypes  #-}
@@ -9,17 +10,25 @@
 
 module Frontend.Function where
 
+import Control.Applicative (liftA2)
+import Control.Monad (join)
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Exception (MonadAsyncException)
 import Control.Monad.Fix (MonadFix)
+import Control.Monad.Ref (MonadRef, Ref)
 import qualified Data.Aeson as A
+import Data.Bool (bool)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import qualified Data.Foldable as F
 import Data.List (foldl', isInfixOf)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe, maybe)
 import Data.Monoid
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Data.Time (getCurrentTime)
+import GHC.IORef (IORef)
 import GHCJS.DOM.Types (Document)
 import Reflex
 import Reflex.Dom
@@ -35,6 +44,7 @@ import GHCJS.DOM.Document (getLocation)
 #endif
 import GHCJS.DOM.Location
 import Frontend.Expression
+import Frontend.ImageWidget
 
 
 ------------------------------------------------------------------------------
@@ -88,7 +98,23 @@ funListPredicate s k v
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
-functionPage :: forall t m.(DomBuilder t m, HasWebView (Performable m), MonadHold t m, MonadIO m, MonadIO (Performable m), MonadFix m, TriggerEvent t m, PerformEvent t m, PostBuild t m, HasWebView m, DomBuilderSpace m ~ GhcjsDomSpace) => Document -> m ()
+functionPage :: forall t m.(DomBuilder t m,
+                            PostBuild t m,
+                            MonadIO m,
+                            MonadFix m,
+                            MonadIO (Performable m),
+                            TriggerEvent t m,
+                            PerformEvent t m,
+                            HasWebView m,
+                            MonadHold t m,
+                            HasWebView (Performable m),
+                            Ref m ~ IORef,
+                            Ref (Performable m) ~ IORef,
+                            MonadRef m,
+                            MonadRef (Performable m),
+                            PerformEvent t (Performable m),
+                            MonadSample t (Performable m),
+                            DomBuilderSpace m ~ GhcjsDomSpace) => Document -> m ()
 functionPage doc = mdo
   pb <- getPostBuild
 
@@ -122,17 +148,131 @@ functionPage doc = mdo
       dEnv = ffor (leftmost [updated env, tagDyn env pb]) $ \e -> Map.map Just e
 
   e <- expression def { _expressionConfig_updateEnvironment =  dEnv }
-  -- display browserId
+
+  go <- button "Evaluate"
+
+  inputWidgets <- listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
+
+  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn (_expression_expr e) go)
   -- display $ fmap unEntityMap workers
   display env
 
+  elAttr "div" ("style" =: "border: 1px solid black") $ do
+    display $ (fmap . fmap) widgetInventory (_expression_expr e)
+    blank
+
   return ()
+
+tShow :: Show a => a -> T.Text
+tShow = T.pack . show
+
+inputWidget :: forall t m.(PostBuild t m,
+                           DomBuilder t m,
+                           MonadIO m,
+                           MonadFix m,
+                           MonadIO (Performable m),
+                           TriggerEvent t m,
+                           PerformEvent t m,
+                           HasWebView m,
+                           MonadHold t m,
+                           HasWebView (Performable m),
+                           PerformEvent t (Performable m),
+                           DomBuilderSpace m ~ GhcjsDomSpace)
+            => Document
+            -> T.Text
+            -> Dynamic t Type
+            -> m (Dynamic t (Expr Type))
+inputWidget doc k dynType = do
+  inp <- dyn (ffor dynType $ \case
+    TModelImage -> do
+      text (tShow k)
+      imWid <- imageInputWidget doc def
+      return $ ELit TModelImage . VImage . ModelImage <$> imageInputWidget_image imWid)
+  join <$> holdDyn (defVal <$> dynType) inp
+
+defVal :: Type -> Expr Type
+defVal t = ELit t v
+  where v = case t of
+          TModelImage -> VImage . ModelImage $ defImg
+          TDouble -> VDouble 0
+          TText -> VText ""
+          TList _ -> VList []
+
+holdLastJust :: (Reflex t, PostBuild t m, MonadHold t m) => a -> Dynamic t (Maybe a) -> m (Dynamic t a)
+holdLastJust a0 dA = do
+  pb <- getPostBuild
+  holdDyn a0 $ fmapMaybe id $ leftmost [tagPromptlyDyn dA pb, updated dA]
+
+hush :: Either e a -> Maybe a
+hush (Right a) = Just a
+hush _         = Nothing
 
 type WMap = Map.Map WorkerProfileId WorkerProfile
 
 remoteCallToVal :: (WorkerProfileId, WorkerProfile) -> (T.Text, Expr Type)
 remoteCallToVal (wpId, wp@(WorkerProfile wpName (wpFuncName, wpFuncType))) =
         (wpFuncName, ERemote wpFuncType (wpId, wp, wpFuncName))
+
+exprInputWidgets :: (DomBuilder t m)
+                 => Dynamic t (Either t (Expr Type))
+                 -> m (Dynamic t (Map.Map T.Text Val))
+exprInputWidgets = undefined
+
+widgetInventory :: Expr Type -> Map.Map T.Text Type
+widgetInventory expr = case expr of
+    v@(EVar t varName) -> bool mempty (varName =: t) ("#" `T.isInfixOf` varName)
+
+    lm@(ELambda p n b) -> widgetInventory b
+
+    r@(ERemote _ _) -> mempty
+
+    ap@(EApp p a b) -> widgetInventory a <> widgetInventory b
+
+    ap@(EPrim1 p pr a) -> widgetInventory a
+
+    ap@(EPrim2 p pr a b) -> widgetInventory a <> widgetInventory b
+
+resolveWidgetVars :: Map.Map T.Text (Either T.Text Val)
+                  -> Either T.Text (Expr a)
+                  -> Either T.Text (Expr a)
+resolveWidgetVars env (Left err) = Left err
+resolveWidgetVars env (Right expr) = case expr of
+
+    EVar p varName | "#" `T.isPrefixOf` varName -> case Map.lookup varName env of
+      Nothing  -> Left $ "No value found for variable: " <> varName
+      Just val -> ELit p <$> val
+
+    v@(EVar _ _) -> Right v
+
+    lm@(ELambda p n b) -> ELambda p n <$> resolveWidgetVars env (Right b)
+
+    r@(ERemote _ _) -> Right r
+
+    ap@(EApp p a b) -> liftA2 (EApp p) (resolveWidgetVars env (Right a)) (resolveWidgetVars env (Right b))
+
+    ap@(EPrim1 p pr a) -> EPrim1 p pr <$> resolveWidgetVars env (Right a)
+
+    ap@(EPrim2 p pr a b) -> liftA2 (EPrim2 p pr) (resolveWidgetVars env (Right a)) (resolveWidgetVars env (Right b))
+
+dumbEval :: (DomBuilder t m,
+              PostBuild t m,
+              MonadIO m,
+              MonadFix m,
+              MonadIO (Performable m),
+              TriggerEvent t m,
+              PerformEvent t m,
+              HasWebView m,
+              MonadHold t m,
+              HasWebView (Performable m)
+            ) => Dynamic t (Map.Map T.Text (Expr Type)) -> Event t (Expr Type) -> m ()
+dumbEval env expr = do
+  performEvent_ $ (liftIO . print) <$> expr
+  performRequestAsync $ ffor expr $ \case
+    EApp _ (ERemote _ ((EntityID wId), wProfile, funcName)) (ELit _ v) ->
+      let url = "api1/callfun?worker-id=" <> T.pack (show wId)
+      in  XhrRequest url "POST" def { _xhrRequestConfig_sendData = (T.unpack $ E.decodeUtf8 . BSL.toStrict $ A.encode v)}
+  return ()
+
 
 
 decoded :: (Reflex t, A.FromJSON a)

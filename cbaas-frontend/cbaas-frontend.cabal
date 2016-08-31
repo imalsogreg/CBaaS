@@ -31,6 +31,7 @@ library
                      , cbaas-lib
                      , containers
                      , data-default
+                     , exception-transformers
                      , ghcjs-dom
                      , groundhog-th
                      , JuicyPixels

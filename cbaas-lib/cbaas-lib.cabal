@@ -56,6 +56,7 @@ library
                        ClientGen.JS
                        ClientGen.Matlab
                        EntityID
+                       Eval
                        Job
                        Message
                        Model

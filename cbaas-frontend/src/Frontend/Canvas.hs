@@ -9,6 +9,7 @@
 module Frontend.Canvas where
 
 import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Fix (MonadFix)
 import Data.Bitraversable
 import Data.Foldable
 import Data.Default
@@ -96,7 +97,17 @@ data WidgetTouches t = WidgetTouches
 data PointAction = PointsStart | PointsEnd | PointsMove | PointsClear
   deriving (Eq)
 
-widgetTouches :: MonadWidget t m
+widgetTouches :: (PostBuild t m,
+                           MonadIO m,
+                           MonadFix m,
+                           MonadIO (Performable m),
+                           TriggerEvent t m,
+                           PerformEvent t m,
+                           HasWebView m,
+                           MonadHold t m,
+                           HasWebView (Performable m),
+                           PerformEvent t (Performable m),
+                           DomBuilderSpace m ~ GhcjsDomSpace)
               => El t
               -> Dynamic t Bool
               -> Event t () -- Event to clear the touches history.
@@ -186,7 +197,18 @@ tShow :: Show a => a -> T.Text
 tShow = T.pack . show
 
 
-drawingArea :: (MonadWidget t m, PostBuild t m) => Dynamic t Bool -> Event t () -> Event t () -> DrawingAreaConfig t -> m (DrawingArea t)
+drawingArea :: (PostBuild t m,
+                DomBuilder t m,
+                           MonadIO m,
+                           MonadFix m,
+                           MonadIO (Performable m),
+                           TriggerEvent t m,
+                           PerformEvent t m,
+                           HasWebView m,
+                           MonadHold t m,
+                           HasWebView (Performable m),
+                           PerformEvent t (Performable m),
+                           DomBuilderSpace m ~ GhcjsDomSpace) => Dynamic t Bool -> Event t () -> Event t () -> DrawingAreaConfig t -> m (DrawingArea t)
 drawingArea okToDraw storePixelsFromCanvas touchClears cfg = mdo
 
   pb <- getPostBuild
@@ -247,7 +269,17 @@ getMouseEventCoords' = do
 --   (x,y) <- bisequence (getClientX e, getClientY e)
 --   return $ TC t x y
 
-relativeCoords :: MonadWidget t m => El t -> m (Dynamic t (Maybe ScreenCoord))
+relativeCoords :: (PostBuild t m,
+                           MonadIO m,
+                           MonadFix m,
+                           MonadIO (Performable m),
+                           TriggerEvent t m,
+                           PerformEvent t m,
+                           HasWebView m,
+                           MonadHold t m,
+                           HasWebView (Performable m),
+                           PerformEvent t (Performable m),
+                           DomBuilderSpace m ~ GhcjsDomSpace) => El t -> m (Dynamic t (Maybe ScreenCoord))
 relativeCoords el = do
   let moveFunc (x,y) = do
         now <- liftIO getCurrentTime

@@ -12,8 +12,8 @@ import Frontend.WebcamWidget
 
 main :: IO ()
 main = mainWidget $ do
-  text "HelloNew"
   d <- lift askDocument
+  -- imageInputWidget d def
   functionPage d
   -- imageInputWidget d def
   -- webcamWidget d (constDyn mempty)

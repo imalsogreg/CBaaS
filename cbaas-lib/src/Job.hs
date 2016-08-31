@@ -26,40 +26,47 @@ import EntityID
 
 import Model
 
+type JobId  = EntityID Job
 type JobMap = EntityMap Job
 
 data Job = Job
-  { _jFunName :: Text
-  , _jArg     :: Model.Val
+  { _jFunName    :: Text
+  , _jArg        :: Model.Val
+--   , _jReturnType :: Type
   } deriving (Eq, Show)
 
 makeLenses ''Job
 
 instance ToJSON Job where
-  toJSON j = object ["function" .= (j^.jFunName)
-                    ,"arg"     .= (j^.jArg)
+  toJSON j = object ["function"   .= (j^.jFunName)
+                    ,"arg"        .= (j^.jArg)
+--                     ,"returntype" .= (^.jReturnType)
                     ]
 
 instance FromJSON Job where
   parseJSON (Object o) = Job
     <$> o .: "function"
     <*> o .: "arg"
+--     <*> o .: "returntype"
   parseJSON _ = undefined
 
 data JobResult = JobResult
-  { jrVal    :: Model.Val
-  , jrJob    :: EntityID Job
+  { jrVal        :: Model.Val
+--   , jrReturnType :: Type
+  , jrJob        :: EntityID Job
   } deriving (Eq, Show)
 
 instance ToJSON JobResult where
   toJSON (JobResult v j) = A.object ["value"  .= v
                                     ,"job"    .= j
+--                                     ,"returntype" .= t
                                     ]
 
 instance FromJSON JobResult where
   parseJSON (A.Object o) = JobResult
     <$> o .: "value"
     <*> o .: "job"
+    -- <*> o .: "returntype"
   parseJSON _ = mzero
 
 #ifndef __GHCJS__
