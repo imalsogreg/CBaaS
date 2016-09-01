@@ -113,10 +113,12 @@ data Type = TDouble
           | TComplex
           | TText
           | TModelImage
-          | TList [Type]
+          | TList
           | TVec
           | TTuple Type Type
           | TFunction Type Type
+          | TVar T.Text
+          | TyApp Type Type
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 instance NFData Type
