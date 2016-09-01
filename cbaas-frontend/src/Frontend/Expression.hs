@@ -27,34 +27,41 @@ data ExpressionConfig t = ExpressionConfig
  , _expressionConfig_initialEnvironment :: Map.Map T.Text (Expr Type)
  , _expressionConfig_updateEnvironment :: Event t (Map.Map T.Text (Maybe (Expr Type)))
  , _expressionConfig_workers :: Dynamic t WorkerProfileMap
+ , _expressionConfig_setText :: Event t T.Text
+ , _expressionConfig_valid :: Dynamic t Bool
  }
 
 instance Reflex t => Default (ExpressionConfig t) where
-  def = ExpressionConfig (constDyn mempty) mempty never (constDyn $ EntityMap mempty)
+  def = ExpressionConfig (constDyn mempty) mempty never (constDyn $ EntityMap mempty) never (constDyn True)
 
 data Expression t = Expression
   { _expression_text :: Dynamic t T.Text
   , _expression_expr :: Dynamic t (Either T.Text (Expr Type))
+  , _expression_go :: Event t ()
   }
 
 mapUnionWithSpace :: (Ord k) => Map.Map k T.Text -> Map.Map k T.Text -> Map.Map k T.Text
 mapUnionWithSpace = Map.unionWith (\a b -> a <> " " <> b)
 
 expression :: forall t m.(DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m, DomBuilderSpace m ~ GhcjsDomSpace) => ExpressionConfig t -> m (Expression t)
-expression (ExpressionConfig textAttrs env0 dEnv workers) =
-  divClass "expression-widget" $ do
-    rec exprText <- value <$> textInput def { _textInputConfig_attributes =
-                                          zipDynWith mapUnionWithSpace textAttrs internalAttrs }
+expression (ExpressionConfig textAttrs env0 dEnv workers setText valid) =
+  divClass "expression-widget" $ divClass "ui icon input" $ do
+    rec exprText <- value <$> textInput
+          (TextInputConfig { _textInputConfig_inputType = "text"
+                           , _textInputConfig_initialValue = ""
+                           , _textInputConfig_setValue = setText
+                           , _textInputConfig_attributes = zipDynWith mapUnionWithSpace textAttrs internalAttrs
+                           })
 
+        let btnAttrs = ("class" =:) . bool " disabled send icon" "circular inverted send link icon" <$> valid
+        (btn,_) <- elDynAttr' "i" btnAttrs blank
         env <- foldDyn applyMap env0 dEnv
 
         let expr  = parseExpr <$> exprText
             typedExpr = fmap snd <$> zipDynWith (\env e -> e >>= (dumbCheck' env) ) env expr
             goodExpr = isRight <$> typedExpr -- liftA2 (&&) (isRight <$> expr) (isRight <$> etype)
             internalAttrs = ffor goodExpr $ bool
-              ("style" =: "box-shadow: 0px 0px 5px rgba(255,0,0,0.5);")
+              ("style" =: "box-shadow: 0px 0px 5px rgba(255,0,0,0.5);" <> "placeholder" =: "label #1")
               mempty
-    display expr
-    display typedExpr
 
-    return $ Expression exprText typedExpr
+    return $ Expression exprText typedExpr (domEvent Click btn)

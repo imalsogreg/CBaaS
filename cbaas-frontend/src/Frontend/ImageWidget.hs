@@ -66,7 +66,7 @@ data ImageInputWidgetConfig t = ImageInputWidgetConfig
   }
 
 instance Reflex t => Default (ImageInputWidgetConfig t) where
-  def = ImageInputWidgetConfig DrawSource never (640,300)
+  def = ImageInputWidgetConfig DrawSource never (320,240)
 
 data ImageInputWidget t = ImageInputWidget
   { imageInputWidget_image         :: Dynamic t Img
@@ -89,7 +89,7 @@ imageInputWidget :: forall t m.(PostBuild t m,
                  -> ImageInputWidgetConfig t
                  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
-  canv <- elAttr "div" ("class" =: "image-input") $ mdo
+  canv <- elAttr "div" ("class" =: "image-input" <> "style" =: ("width: " <> tShow wid <> "px;")) $ mdo
 
     (canvasActions, imgSrc) <- divClass "input-bar" $ do
       (imgSrcSet, canvasActions) <- divClass "input-select ui secondary pointing menu" $ do
@@ -119,7 +119,7 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
                 b  <- iconButton "mail forward" (constDyn $ "style" =: ("position: absolute; left: 0px; top: 0px;" <>
                                                                         " color: white; text-shadow: 0px 0px 2px black;"))
                 performEvent_ $ ffor b $ \() -> do
-                  liftIO $ drawImageFromVideo ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float)
+                  liftIO $ drawImageFromVideoScaled ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float) (320 :: Float) (240 :: Float)
                 return b
         else return never
       clicks' <- holdDyn never clicks
@@ -155,7 +155,7 @@ drawingElements :: (PostBuild t m,
 drawingElements ctx = do
   color  <- updated . value <$> textInput def { _textInputConfig_inputType = "color"}-- TODO actual color picker
   performEvent_ $ ffor color (\c -> setStrokeStyle ctx (Just $ CanvasStyle $ jsval ((jsPack $ T.unpack c :: JSString))))
-  penWid <- (fmap (fromMaybe (3 :: Float) . readMaybe . T.unpack) . value) <$> textInput def --TODO: actual width picker
+  penWid <- (fmap (fromMaybe (3 :: Float) . readMaybe . T.unpack) . value) <$> textInput def { _textInputConfig_attributes = constDyn ("style" =: "width: 50px;")}--TODO: actual width picker
   performEvent_ $ ffor (updated penWid) (\c -> setLineWidth ctx c)
   blank
 
@@ -356,6 +356,7 @@ load = undefined
 getResult = undefined
 
 drawImageFromVideo = undefined
+drawImageFromVideoScaled = undefined
 
 toDataURL :: HTMLCanvasElement -> Maybe String -> IO T.Text
 toDataURL = error "toDataUrl only available in javascript"

@@ -6,6 +6,7 @@
 {-# language LambdaCase  #-}
 {-# language RankNTypes  #-}
 {-# language OverloadedStrings  #-}
+{-# language JavaScriptFFI #-}
 {-# language ScopedTypeVariables  #-}
 
 module Frontend.Function where
@@ -20,6 +21,7 @@ import qualified Data.Aeson as A
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
+import Data.Either (isRight)
 import qualified Data.Foldable as F
 import Data.List (foldl', isInfixOf)
 import qualified Data.Map as Map
@@ -33,6 +35,7 @@ import GHCJS.DOM.Types (Document)
 import Reflex
 import Reflex.Dom
 import Reflex.Dom.WebSocket
+import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Message
 import Model
 import RemoteFunction
@@ -45,6 +48,7 @@ import GHCJS.DOM.Document (getLocation)
 import GHCJS.DOM.Location
 
 import Job
+import Pretty
 import Frontend.Expression
 import Frontend.ImageWidget
 
@@ -52,24 +56,37 @@ import Frontend.ImageWidget
 ------------------------------------------------------------------------------
 -- | FunctionWidget shows profile information for a function,
 --   and editing controls when the viewer has editing rights
-data FunctionWidget t = FunctionWidget
-  { _functionWidget_profile :: Dynamic t Function }
+-- data FunctionWidget t = FunctionWidget
+--   { _functionWidget_profile :: Dynamic t WorkerProfile }
 
-functionWidget :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m) => FunctionWidget t -> m ()
-functionWidget f = do
-  d <- dyn =<< mapDyn functionDetails (_functionWidget_profile f)
-  return ()
-  where functionDetails fun =
-          elClass "div" "function-widget" $ do
-            el "div" (text $ fnName fun)
-            el "div" (text . T.pack . show $ fnType fun)
-            mapM_ (elClass "div" "tag" . text . T.pack . show) (fnTags fun)
+functionListingItem :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m) => T.Text -> Dynamic t Type -> m (Event t T.Text) -- FunctionWidget t -> m ()
+functionListingItem k t = do
+  item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
+    elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
+    text k
+  return $ k <$ domEvent Click item
 
+
+functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
+                => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
+                -- TODO: change Function to FunctionInfo
+                --       FunctionInfo might list tags,
+                --       usage history, nWorkers implementing, etc
+                -> m (Event t T.Text)
+functionListing' funs = do
+ elAttr "div" ("style" =: "min-width: 300px;") $ do
+  divClass "ui fluid search selection dropdown" $ do
+    elAttr "input" ("type" =: "hidden" <> "name" =: "function-search") blank
+    elAttr "i" ("class" =: "dropdown icon") blank
+    divClass "default text" $ text "Remote function..."
+    menu :: Dynamic t (Map.Map T.Text (Event t T.Text)) <- divClass "menu" $
+      listWithKey funs (functionListingItem)
+    return $ switchPromptlyDyn $ leftmost . Map.elems <$> menu
 
 ------------------------------------------------------------------------------
 -- | A list of functions meant to update with typing in the search box
 functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
-                => Dynamic t (Map.Map T.Text Function)
+                => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
                 -> Dynamic t T.Text
                 -- TODO: change Function to FunctionInfo
                 --       FunctionInfo might list tags,
@@ -77,24 +94,24 @@ functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpac
                 -> m (Event t T.Text)
 functionListing functions sel = mdo
   searchbox <- value <$> elClass "div" "search-box" (textInput def)
-  funPredicate :: Dynamic t (T.Text -> Function -> Bool) <- mapDyn funListPredicate searchbox
-  okFuns <- combineDyn Map.filterWithKey funPredicate functions
+  funPredicate :: Dynamic t (T.Text -> Type -> Bool) <- mapDyn funListPredicate searchbox
+  okFuns <- combineDyn (\p m -> Map.filterWithKey p m) funPredicate functions
 
   listing <- selectViewListWithKey_ curSelect okFuns $ \k v b -> do
-    divAttrs <- forDyn b $ \case
-      False -> "class" =: "function-entry"
-      True  -> "class" =: "function-entry selected" <>
-               "style" =: "background-color:gray" -- TODO only use class & css file
-    (e,_) <- elDynAttr' "div" divAttrs (functionWidget (FunctionWidget v))
+    let divAttrs = ffor b $ \case
+          False -> "class" =: "function-entry"
+          True  -> "class" =: "function-entry selected" <>
+                   "style" =: "background-color:gray" -- TODO only use class & css file
+    (e,_) <- elDynAttr' "div" divAttrs (functionListingItem k v)
     return (k <$ domEvent Click e)
 
-  curSelect <- holdDyn T.empty listing
+  curSelect :: Dynamic t T.Text <- holdDyn T.empty listing
   return $ updated curSelect
 
  -- TODO: more customizations
-funListPredicate :: T.Text -> T.Text -> v -> Bool
-funListPredicate s k v
-  | T.null s  = False
+funListPredicate :: T.Text -> T.Text -> Type -> Bool
+funListPredicate s k t
+  | T.null s  = True
   | otherwise = s `T.isInfixOf` k
 
 viewResults resultIds = do
@@ -124,6 +141,9 @@ functionPage :: forall t m.(DomBuilder t m,
 functionPage doc = mdo
   pb <- getPostBuild
 
+  -- TODO: Is this necessary, is there a cleaner way? (dropdown doesn't seem to work with less)
+  performEvent_ =<< delay 0.1 (liftIO initDropdown <$ pb)
+
   t0 <- liftIO getCurrentTime
   tick <- tickLossy 1 t0
   browserURL <- unrelativizeWebSocketUrl doc "/api1/browserupdates"
@@ -140,7 +160,6 @@ functionPage doc = mdo
   let resultReport = fmapMaybe id $ ffor msg $ \case
         (JobFinished jobId) -> Just jobId
         _                   -> Nothing
-  elAttr "div" ("style" =: "border: 1px solid blue") $ viewResults resultReport
 
   workers0 :: Event t WorkerProfileMap <- fmapMaybe id <$> getAndDecode ("/api1/worker" <$ pb)
   let workersInit :: Event t (WorkerProfileMap -> WorkerProfileMap) = ffor workers0 $ \(EntityMap ws) -> const . EntityMap $
@@ -158,9 +177,16 @@ functionPage doc = mdo
       envWithWidgets :: Dynamic t (Map.Map T.Text (Expr Type)) = zipDynWith (<>) env inputWidgets
       dEnv = ffor (leftmost [updated env, tagDyn env pb]) $ \e -> Map.map Just e
 
-  e <- expression def { _expressionConfig_updateEnvironment =  dEnv }
+  listingClicks <- divClass "ui menu" $ do
+    elClass "a" "item" $ text "cbaas"
+    elClass "a" "item" $ text "Help"
+    divClass "right menu" $ elClass "a" "ui item" $
+      functionListing' ((Map.fromList . map wpFunction . Map.elems . unEntityMap) <$> workers :: Dynamic t (Map.Map T.Text Type))
 
-  go <- button "Evaluate"
+  e <- expression def { _expressionConfig_updateEnvironment =  dEnv
+                      , _expressionConfig_valid = isRight <$> _expression_expr e
+                      , _expressionConfig_setText = listingClicks
+                      }
 
   inputWidgets :: Dynamic t (Map.Map T.Text (Expr Type))<- joinDynThroughMap <$>
     listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
@@ -168,13 +194,9 @@ functionPage doc = mdo
   let furnishedExpr :: Dynamic t (Either T.Text (Expr Type)) =
         zipDynWith (\env' expr' -> resolveWidgetVars env' =<< expr') envWithWidgets (_expression_expr e)
 
-  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr go)
+  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr (_expression_go e))
 
-
-  -- elAttr "div" ("style" =: "border: 1px red solid;") $ display inputWidgets
-  -- elAttr "div" ("style" =: "border: 1px solid black") $ do
-  --   display $ (fmap . fmap) widgetInventory (_expression_expr e)
-  --   blank
+  elAttr "div" ("style" =: "border: 1px solid blue") $ viewResults resultReport
 
   return ()
 
@@ -212,7 +234,7 @@ defVal t = ELit t v
           TModelImage -> VImage . ModelImage $ defImg
           TDouble -> VDouble 0
           TText -> VText ""
-          TList _ -> VList []
+          TList -> VList []
 
 holdLastJust :: (Reflex t, PostBuild t m, MonadHold t m) => a -> Dynamic t (Maybe a) -> m (Dynamic t a)
 holdLastJust a0 dA = do
@@ -311,7 +333,11 @@ unrelativizeWebSocketUrl doc s = do
           else liftIO $ getPathname loc
   return $ newProto <> "//" <> host <> path <> s
 
-#ifndef ghcjs_HOST_OS
+#ifdef ghcjs_HOST_OS
+foreign import javascript safe "$('.ui.dropdown').dropdown(); console.log('test')"
+  initDropdown :: IO ()
+#else
+initDropdown = undefined
 getHost = undefined
 getPathname = undefined
 getLocation = undefined

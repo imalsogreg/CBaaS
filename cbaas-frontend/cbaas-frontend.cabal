@@ -36,6 +36,7 @@ library
                      , groundhog-th
                      , JuicyPixels
                      , mtl
+                     , pretty
                      , ref-tf
                      , reflex
                      , reflex-dom
