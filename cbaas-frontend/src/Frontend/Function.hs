@@ -117,7 +117,13 @@ funListPredicate s k t
 viewResults resultIds = do
   results <- getAndDecode $ ffor resultIds $ \(EntityID rId) ->
     "/api1/jobresult?job-id=" <> tShow rId
-  display =<< foldDyn (:) ([] :: [Maybe JobResult]) results
+  widgetHold blank $ ffor results $ \case
+    Just (JobResult (VImage mi) _) -> displayImg' mi
+    Just (JobResult (VText t) _ ) -> text t
+    Nothing -> text "Nothing"
+    _ -> text "Non-image result"
+  blank
+  -- display =<< foldDyn (:) ([] :: [Maybe JobResult]) results
 
 ------------------------------------------------------------------------------
 -- | Page-level coordination of function-related widgets
@@ -183,20 +189,33 @@ functionPage doc = mdo
     divClass "right menu" $ elClass "a" "ui item" $
       functionListing' ((Map.fromList . map wpFunction . Map.elems . unEntityMap) <$> workers :: Dynamic t (Map.Map T.Text Type))
 
-  e <- expression def { _expressionConfig_updateEnvironment =  dEnv
-                      , _expressionConfig_valid = isRight <$> _expression_expr e
-                      , _expressionConfig_setText = listingClicks
-                      }
+  (e, inputWidgets) <- divClass "non-menu-content" $ do
 
-  inputWidgets :: Dynamic t (Map.Map T.Text (Expr Type))<- joinDynThroughMap <$>
-    listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
+    e <- divClass "expression" $ do
+      divClass "ui labeled input" $ do
+        divClass "ui label" $ do
+          text "cbaas:"
+        expression def { _expressionConfig_updateEnvironment =  dEnv
+                       , _expressionConfig_valid = isRight <$> _expression_expr e
+                       , _expressionConfig_setText = listingClicks
+                       }
 
-  let furnishedExpr :: Dynamic t (Either T.Text (Expr Type)) =
-        zipDynWith (\env' expr' -> resolveWidgetVars env' =<< expr') envWithWidgets (_expression_expr e)
+    inputWidgets <- divClass "inputs-outputs" $ do
 
-  dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr (_expression_go e))
+      inputWidgets :: Dynamic t (Map.Map T.Text (Expr Type))<- divClass "inputs" $
+        joinDynThroughMap <$>
+        listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
 
-  elAttr "div" ("style" =: "border: 1px solid blue") $ viewResults resultReport
+      let furnishedExpr :: Dynamic t (Either T.Text (Expr Type)) =
+            zipDynWith (\env' expr' -> resolveWidgetVars env' =<< expr') envWithWidgets (_expression_expr e)
+
+      dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr (_expression_go e))
+
+      elAttr "div" ("class" =: "results") $ viewResults resultReport
+
+      return inputWidgets
+
+    return (e, inputWidgets)
 
   return ()
 

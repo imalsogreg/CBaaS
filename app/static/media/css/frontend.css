@@ -1,0 +1,30 @@
+.non-menu-content {
+  margin: 0 auto;
+  width: 90%;
+  height: 100%;
+}
+
+.expression {
+  margin: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.expression input {
+  width: 75%;
+}
+
+.inputs-outputs {
+  display: flex;
+  justify-content: space-around;
+  flex-dirction: row;
+}
+
+.inputs {
+  max-width: 49%;
+}
+
+.results {
+  max-width: 49%;
+}

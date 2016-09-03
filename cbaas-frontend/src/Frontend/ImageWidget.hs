@@ -12,6 +12,7 @@
 module Frontend.ImageWidget where
 
 import qualified Codec.Picture as JP
+import qualified Codec.Picture.Types as JP
 import Control.Monad.Fix (MonadFix)
 import Data.Bool
 import qualified Data.Map as Map
@@ -282,6 +283,16 @@ viewSingleton     _  =  Nothing
 --     baseImg <- holdDyn undefined undefined
 --     undefined
 --     undefined
+
+displayImg' :: (DomBuilderSpace m ~ GhcjsDomSpace,
+                HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+                MonadIO (Performable m),
+                DomBuilder t m,
+                PostBuild t m,
+                PerformEvent t m) => ModelImage -> m () 
+displayImg' (ModelImage jp) = do
+  let dataUrl = ("data:image/jpeg;base64," <>) . T.decodeUtf8 . B64.encode . BSL.toStrict . JP.encodeJpeg . JP.convertImage . JP.pixelMap JP.dropTransparency $ jp
+  elAttr "img" ("src" =: dataUrl) blank
 
 -------------------------------------------------------------------------------
 -- displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
