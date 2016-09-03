@@ -28,6 +28,7 @@ import           Database.Groundhog.TH
 import           GHC.Generics
 import           Servant.API
 import           Web.HttpApiData
+import           Utils (note)
 
 ------------------------------------------------------------------------------
 -- | A type wrapper for Entity ID tags. We wrap the UUID in our own type
@@ -117,10 +118,3 @@ instance FromFormUrlEncoded (EntityID a) where
 
 -- instance FromRow (EntityID a) where
 --   fromRow = field
-
-note :: e -> Maybe a -> Either e a
-note e Nothing  = Left e
-note _ (Just a) = Right a
-
--- ghCodeGen :: CodegenConfig
--- ghCodeGen = defaultCodegenConfig { namingStyle = lowerCaseSuffixNamingStyle }

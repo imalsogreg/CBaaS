@@ -12,7 +12,21 @@
 {-# LANGUAGE TemplateHaskell            #-}
 {-# language TypeFamilies               #-}
 
-module Model where
+module Model (
+  Val(..),
+  ToVal(..),
+  FromVal(..),
+  Expr(..),
+  ModelImage(..),
+  Prim1(..),
+  Prim2(..),
+  Type(..),
+  WorkerProfile(..),
+  WorkerProfileMap,
+  WorkerName(..),
+  WorkerProfileId,
+  module Type
+) where
 
 import Codec.Picture
 import Control.Applicative ((<|>))
@@ -40,10 +54,12 @@ import GHC.Generics
 import GHC.TypeLits
 import Text.Read
 import Text.ParserCombinators.ReadPrec
+import qualified Text.PrettyPrint.HughesPJClass as P
 import URI.ByteString
 import Web.HttpApiData
 
 import EntityID
+import Type
 import Utils
 
 class ToVal a where
@@ -51,23 +67,6 @@ class ToVal a where
 
 class FromVal a where
   fromVal :: Val -> a
-
--- -- Singleton types
--- data STy ty where
---   SInt    :: STy Int
---   SBool   :: STy Bool
---   SFloat  :: STy Float
---   SDouble :: STy Double
---   SFun    :: STy a -> STy b -> STy (a -> b)
---   SApp    :: STy a
---   SArray1 :: STy a -> STy (Array 1 a)
---   SArray2 :: STy a -> STy (Array 2 a)
---   SArray3 :: STy a -> STy (Array 3 a)
---   SArray4 :: STy a -> STy (Array 4 a)
---   SText   :: STy Text
-
--- data Array int a where
---   Array :: 1 -> [a] -> Array 1 a
 
 data WorkerName = WorkerName { unWorkerName :: Text }
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
@@ -109,17 +108,6 @@ instance A.FromJSON a => A.FromJSON (Expr a)
 
 instance NFData a => NFData (Expr a)
 
-data Type = TDouble
-          | TComplex
-          | TText
-          | TModelImage
-          | TList
-          | TVec
-          | TTuple Type Type
-          | TFunction Type Type
-          | TVar T.Text
-          | TyApp Type Type
-  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
 instance NFData Type
 
@@ -255,9 +243,6 @@ instance Model.ToVal Int where
 instance Model.ToVal Double where
   toVal = VDouble
 
--- instance Model.ToVal a => Model.ToVal [a] where
---   toVal i = Model.VList $ Prelude.map toVal i
-
 instance Model.ToVal Text where
   toVal = VText
 
@@ -276,30 +261,10 @@ instance Model.FromVal (Image PixelRGBA8) where
 
 #ifndef __GHCJS__
 mkPersist ghCodeGen [groundhog|
-  - primitive: Type
-    converter: showReadConverter
   - primitive: Val
     converter: showReadConverter
 |]
 #endif
-
-instance ToHttpApiData Type where
-  toUrlPiece (TFunction a b) = toUrlPiece a <> " -> " <> toUrlPiece b
-  toUrlPiece (TTuple a b) = "(" <> toUrlPiece a <> ", " <> toUrlPiece b <> ")"
-  toUrlPiece x = T.pack $ show x
-  toHeader (TFunction a b) = toHeader a <> " -> " <> toHeader b
-  toHeader (TTuple a b) = "(" <> toHeader a <> ", " <> toHeader b <> ")"
-  toHeader x = BS.pack $ show x
-
--- TODO: Parse tuple types
-instance FromHttpApiData Type where
-  parseUrlPiece x = case T.words x of
-    (x: "->" : ys) -> do
-      tx   <- parseUrlPiece x
-      tRet <- parseUrlPiece (T.unwords ys)
-      return $ TFunction tx tRet
-    [x] -> note "No read in type" (readMaybe $ T.unpack x)
-    _   -> Left "No parse for type"
 
 
 

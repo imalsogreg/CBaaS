@@ -67,6 +67,7 @@ library
                        RemoteFunction
                        Semantics
                        Tag
+                       Type
                        TypeCheck
                        User
                        Utils

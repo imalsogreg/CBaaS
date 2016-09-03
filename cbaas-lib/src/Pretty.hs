@@ -30,14 +30,3 @@ prettyVal v = case v of
 
 instance P.Pretty Val where
   pPrint = prettyVal
-
-prettyType :: Type -> P.Doc
-prettyType t = case t of
-  TyApp a b -> prettyType a <+> prettyType b
-  TVar t    -> pText t
-  TFunction  a b -> prettyType a <+> P.text "→" <+> prettyType b
-  TTuple a b -> P.char '(' <> prettyType a <> P.char ',' <> prettyType b <>  P.char ')'
-  _ -> P.text (drop 1 $ show t)
-
-instance P.Pretty Type where
-  pPrint = prettyType
