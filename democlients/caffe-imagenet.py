@@ -61,5 +61,5 @@ if __name__ == "__main__":
   v = {'tag':'VImage','contents':b64encode(b)}
   fn = cbaas.package_image_binary(b)
   print fn
-  l = cbaas.Listener(domain='localhost:8001', on_job=do_work, type="TModelImage -> TText")
+  l = cbaas.Listener(domain='greghale.io', on_job=do_work, function_name="label", type="TModelImage -> TText")
   print "Finished (why?)"

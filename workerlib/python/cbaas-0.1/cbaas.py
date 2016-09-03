@@ -4,8 +4,11 @@ import requests as requests
 import websocket
 import logging
 import imghdr
+import PIL.Image
 import skimage
+import skimage.io as io
 import skimage.io
+from StringIO import StringIO
 import tempfile
 from os import remove
 from json import dumps, loads
@@ -13,6 +16,8 @@ import logging
 import thread
 import time
 import urllib
+
+io.use_plugin('pil')
 
 # namespaces (numpy as np)
 # context managers
@@ -29,17 +34,17 @@ class DecodeError(Exception):
 class Listener:
     """A work listener for attaching to CBaaS servers"""
 
-    def __init__(self, on_job, type, domain="localhost", port="9160", key=None, verbose=False, restart=True):
+    def __init__(self, on_job, function_name, type, domain="localhost", port="9160", worker_name="anonymous", key=None, verbose=False, restart=True):
         self._workerID   = None
-        self._wsHost     = "ws://" + domain
-        self._httpHost   = "http://" + domain
+        self._wsHost     = "wss://" + domain
+        self._httpHost   = "https://" + domain
         self._on_job     = on_job
         self._type       = type
         # _wsUrl = self._wsHost + '/api1/work?name=test&function=fix'
-        _wsUrl = self._wsHost + '/api1/work?' + urllib.urlencode({'type': self._type, 'function': 'label', 'name': 'testworker'})
+        _wsUrl = self._wsHost + '/api1/work?' + urllib.urlencode({'type': self._type, 'function': function_name, 'name': worker_name})
         ws = websocket.WebSocketApp(_wsUrl, # self._wsHost + '/api1/work?name=test&function=fix',
                                     on_close   = lambda msg: show_close(msg),
-                                    on_message = self._handle_message,
+                                    on_message = lambda ws, msg: self._handle_message(msg, type),
                                     on_error   = show_err,
                                     on_open    = hold_open,
                                     on_ping    = lambda ws, payload: _handle_ping(ws, payload),
@@ -54,7 +59,7 @@ class Listener:
           time.sleep(5)
           ws.run_forever()
 
-    def _handle_message(self, ws, msgstr):
+    def _handle_message(self, msgstr, ty):
         print ("(cbaas) HANDLE_MESSAGE")
 
         msg = loads(msgstr)
@@ -68,18 +73,30 @@ class Listener:
                 raise Exception("Job requested without _workerID defined")
 
             respUrl = self._httpHost + '/api1/returnfun'
+            print 'respUrl: ' + respUrl
+
+            print 'msg:'
+            # print msg['contents'][0]
             respParams = { 'worker-id': self._workerID,
-                           'job-id':    msg['contents'][0]}
+                           'job-id':    msg['contents']}
+            print 'respParams: '
+            # print respParams
+
             respHeaders = {'Content-Type': 'application/json'}
 
             msg_arg = _message_argument(msg)
+            print 'msg_arg: '
+            # print msg_arg
 
             v = _decode_cbaas_value(msg_arg)
+            print '_decode_cbaas_value: '
+            print v
 
             r = self._on_job(v)
-            print "r: " + str(r)
+            print "r: "
+            print r
 
-            cbaas_r = _encode_cbaas_value(r)
+            cbaas_r = _encode_cbaas_value(r, retTypeOfType(ty))
             msg_r = {'tag':'WorkerFinished',
                      'contents':[
                          msg['contents'][0],
@@ -170,8 +187,10 @@ def _decode_cbaas_value(kv):
             raise ValueError('Improperly formatted VImage', kv)
 
 
-def _encode_cbaas_value(v):
+def _encode_cbaas_value(v,ty):
     t = type(v)
+    print "TYPE: "
+    print ty
     # TODO: find isReal(type)
     if (t == type(1) or t == type(1.0) or t == type(numpy.int64(1))):
         return {'tag':'VDouble', 'contents':v}
@@ -180,6 +199,17 @@ def _encode_cbaas_value(v):
                 'contents':{'real':v.real,'imag':v.imag}}
     elif (t == type('A string') or t == type(u'A unicode string')):
         return {'tag':'VText', 'contents':v}
+    elif (ty == 'TModelImage'):
+        s = StringIO()
+        fakev = numpy.array([[100.0,200.0],[0.0,1.0]])
+        skimage.io.imsave(s, arr=numpy.uint8(fakev), plugin='pil')
+        imgdat = base64.b64encode(s.getvalue())
+
+        mi = {'tag': 'ModelImage',
+              'contents': imgdat}
+        v = {'tag':'VImage', 'contents': (mi) }
+        print v
+        return v
     elif (t == type(numpy.array([[1,2],[3,4]]))):
         return {'tag':'VMat',
                 'contents': map( _encode_cbaas_value, v.toList()) }
@@ -249,3 +279,7 @@ if __name__ == "__main__":
   print "Main!"
   l = Listener(on_job=work, domain="localhost:8000", verbose=True)
   print "Finished"
+
+# TODO: Fix. This will break on (Int -> Int) -> Int
+def retTypeOfType(ty):
+    return ty.split('->',1)[1].strip()
