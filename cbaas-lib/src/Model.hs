@@ -194,15 +194,23 @@ instance A.FromJSON Val
 -- | @ModelImage@ is always a base64 encoded tiff with RGBA8 pixels
 newtype ModelImage = ModelImage (Image PixelRGBA8)
 
+imageToBytes :: ModelImage -> BS.ByteString
+imageToBytes (ModelImage i) = B64.encode . BL.toStrict . encodeTiff $ i
+
+imageFromBytes :: BS.ByteString -> Either String ModelImage
+imageFromBytes bs = fmap (ModelImage . convertRGBA8) $ decodeImage =<< B64.decode bs
+
 instance Show ModelImage where
-  show = show . A.toJSON
+  show = BS.unpack . imageToBytes
 
 instance Read ModelImage where
-  readPrec = do
-    str <- look
-    case A.decode (BL.pack str) of
-      Nothing -> pfail
-      Just mi -> return mi
+  readsPrec _ = readModelImage
+
+
+readModelImage :: ReadS ModelImage
+readModelImage s = case imageFromBytes (BS.pack s) of
+  Right m -> [(m,"")]
+  Left e -> error e
 
 instance Eq ModelImage where
   a == b =
