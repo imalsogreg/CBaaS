@@ -12,6 +12,7 @@
 module Frontend.ImageWidget where
 
 import qualified Codec.Picture as JP
+import qualified Codec.Picture.Types as JP
 import Control.Monad.Fix (MonadFix)
 import Data.Bool
 import qualified Data.Map as Map
@@ -244,7 +245,7 @@ fileImageLoader = do
   fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$>
                          fileInput def
 
-  #ifdef ghcjs_HOST_OS
+#ifdef ghcjs_HOST_OS
 
   reader <- liftIO $ newFileReader
   performEvent_ $ ffor fls $ \f -> liftIO $ do
@@ -258,7 +259,7 @@ fileImageLoader = do
                                      res))
     return (img,res)
 
-  #else
+#else
 
   -- TODO: Implement file reading in webkitgtk case
   imgs <- performEvent $ ffor fls $ \f -> liftIO $ do
@@ -266,7 +267,7 @@ fileImageLoader = do
     print fname
     undefined
 
-  #endif
+#endif
 
   return imgs
 
@@ -282,6 +283,16 @@ viewSingleton     _  =  Nothing
 --     baseImg <- holdDyn undefined undefined
 --     undefined
 --     undefined
+
+displayImg' :: (DomBuilderSpace m ~ GhcjsDomSpace,
+                HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+                MonadIO (Performable m),
+                DomBuilder t m,
+                PostBuild t m,
+                PerformEvent t m) => ModelImage -> m () 
+displayImg' (ModelImage jp) = do
+  let dataUrl = ("data:image/jpeg;base64," <>) . T.decodeUtf8 . B64.encode . BSL.toStrict . JP.encodeJpeg . JP.convertImage . JP.pixelMap JP.dropTransparency $ jp
+  elAttr "img" ("src" =: dataUrl) blank
 
 -------------------------------------------------------------------------------
 -- displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
@@ -308,11 +319,11 @@ displayImg dImgUrl = do
     -- print "DRAW"
     GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
     GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
-  #ifdef ghcjs_HOST_OS
+#ifdef ghcjs_HOST_OS
     ctx <- fromJSValUnchecked =<< getContext htmlCanv ("2d" :: String)
-  #else
+#else
     ctx <- undefined -- TODO - when webkitgtk supports getting 2d context
-  #endif
+#endif
     drawImage ctx (Just htmlImg) 0 0
 
 -------------------------------------------------------------------------------

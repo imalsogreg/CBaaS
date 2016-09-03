@@ -38,6 +38,7 @@ import Snap.Snaplet.Auth
 import Snap.Snaplet.Session
 
 import EntityID
+import Model
 import Worker
 import WorkerProfile
 import BrowserProfile

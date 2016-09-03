@@ -43,6 +43,7 @@ import qualified Heist.Interpreted as I
 import           API
 import           Job
 import           EntityID
+import           Model
 import           RemoteFunction
 import           WorkerProfile
 import           Server.Application

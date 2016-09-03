@@ -208,7 +208,7 @@ instance Read ModelImage where
 
 
 readModelImage :: ReadS ModelImage
-readModelImage s = case imageFromBytes (BS.pack s) of
+readModelImage s = case imageFromBytes (BS.pack $ Prelude.dropWhile (== ' ') s) of
   Right m -> [(m,"")]
   Left e -> error e
 
