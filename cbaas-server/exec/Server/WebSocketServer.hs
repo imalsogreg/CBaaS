@@ -25,6 +25,7 @@ import URI.ByteString
 import EntityID
 import Job
 import Message
+import Model
 import qualified Model as Model
 import Worker
 import WorkerProfile

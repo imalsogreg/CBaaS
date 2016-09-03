@@ -244,7 +244,7 @@ fileImageLoader = do
   fls :: Event t File <- (fmapMaybe viewSingleton . updated . value) <$>
                          fileInput def
 
-  #ifdef ghcjs_HOST_OS
+#ifdef ghcjs_HOST_OS
 
   reader <- liftIO $ newFileReader
   performEvent_ $ ffor fls $ \f -> liftIO $ do
@@ -258,7 +258,7 @@ fileImageLoader = do
                                      res))
     return (img,res)
 
-  #else
+#else
 
   -- TODO: Implement file reading in webkitgtk case
   imgs <- performEvent $ ffor fls $ \f -> liftIO $ do
@@ -266,7 +266,7 @@ fileImageLoader = do
     print fname
     undefined
 
-  #endif
+#endif
 
   return imgs
 
@@ -308,11 +308,11 @@ displayImg dImgUrl = do
     -- print "DRAW"
     GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
     GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
-  #ifdef ghcjs_HOST_OS
+#ifdef ghcjs_HOST_OS
     ctx <- fromJSValUnchecked =<< getContext htmlCanv ("2d" :: String)
-  #else
+#else
     ctx <- undefined -- TODO - when webkitgtk supports getting 2d context
-  #endif
+#endif
     drawImage ctx (Just htmlImg) 0 0
 
 -------------------------------------------------------------------------------
