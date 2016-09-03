@@ -64,37 +64,24 @@ class Listener:
 
         msg = loads(msgstr)
 
-        print 'Message is loaded'
         if (_isJob(msg)):
 
-            print 'Is Job'
-            print 'ID: ' + str(msg['contents'][0])
+            print 'Job ID: ' + str(msg['contents'][0])
             if self._workerID == None:
                 raise Exception("Job requested without _workerID defined")
 
             respUrl = self._httpHost + '/api1/returnfun'
-            print 'respUrl: ' + respUrl
 
-            print 'msg:'
-            # print msg['contents'][0]
             respParams = { 'worker-id': self._workerID,
                            'job-id':    msg['contents']}
-            print 'respParams: '
-            # print respParams
 
             respHeaders = {'Content-Type': 'application/json'}
 
             msg_arg = _message_argument(msg)
-            print 'msg_arg: '
-            # print msg_arg
 
             v = _decode_cbaas_value(msg_arg)
-            print '_decode_cbaas_value: '
-            print v
 
             r = self._on_job(v)
-            print "r: "
-            print r
 
             cbaas_r = _encode_cbaas_value(r, retTypeOfType(ty))
             msg_r = {'tag':'WorkerFinished',
@@ -104,17 +91,8 @@ class Listener:
                      ]}
             job_result = {'job': msg['contents'][0], 'value': cbaas_r }
             # ws.send(dumps(msg_r))
-            print "PRE"
-            print "cbaas_r :"
-            print cbaas_r
-            print "job_result: "
-            print job_result
             resp = requests.post(respUrl, params=respParams,
                                  json=job_result, headers=respHeaders)
-
-            print resp
-            print resp.text
-            print "POST"
 
         else:
             try:
@@ -189,8 +167,6 @@ def _decode_cbaas_value(kv):
 
 def _encode_cbaas_value(v,ty):
     t = type(v)
-    print "TYPE: "
-    print ty
     # TODO: find isReal(type)
     if (t == type(1) or t == type(1.0) or t == type(numpy.int64(1))):
         return {'tag':'VDouble', 'contents':v}
@@ -201,14 +177,12 @@ def _encode_cbaas_value(v,ty):
         return {'tag':'VText', 'contents':v}
     elif (ty == 'TModelImage'):
         s = StringIO()
-        fakev = numpy.array([[100.0,200.0],[0.0,1.0]])
-        skimage.io.imsave(s, arr=numpy.uint8(fakev), plugin='pil')
+        skimage.io.imsave(s, arr=numpy.uint8(v), plugin='pil')
         imgdat = base64.b64encode(s.getvalue())
 
         mi = {'tag': 'ModelImage',
               'contents': imgdat}
         v = {'tag':'VImage', 'contents': (mi) }
-        print v
         return v
     elif (t == type(numpy.array([[1,2],[3,4]]))):
         return {'tag':'VMat',

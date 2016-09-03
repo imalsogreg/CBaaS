@@ -11,7 +11,7 @@ import cbaas
 
 caffe_root = '/Users/greghale/Programming/caffe/'
 
-model_path = caffe_root + 'models/bvlc_googlenet/' # '../caffe/models/bvlc_googlenet/' # substitute your path here
+model_path = caffe_root + 'models/bvlc_googlenet/'
 net_fn   = model_path + 'deploy.prototxt'
 param_fn = model_path + 'bvlc_googlenet.caffemodel'
 
@@ -28,9 +28,9 @@ net = caffe.Classifier('tmp.prototxt', param_fn,
 
 # a couple of utility functions for converting to and from Caffe's input image layout
 def preprocess(net, img):
+    # Drop the alpha channel if there is one
     if np.shape(img)[2] == 4:
         img = img[:,:,1:]
-    print np.shape(img)
     return np.float32(np.rollaxis(img, 2)[::-1]) - net.transformer.mean['data']
 def deprocess(net, img):
     return np.dstack((img + net.transformer.mean['data'])[::-1])
@@ -65,15 +65,12 @@ def make_step(net, step_size=1.5, end='inception_4c/output',
 def deepdream(net, base_img, iter_n=10, octave_n=4, octave_scale=1.4,
               end='inception_4c/output', clip=True, **step_params):
     # prepare base images for all octaves
-    print "KNOWN GOOD"
     octaves = [preprocess(net, base_img)]
-    print "KNOWN GOOD"
     for i in xrange(octave_n-1):
         octaves.append(nd.zoom(octaves[-1], (1, 1.0/octave_scale,1.0/octave_scale), order=1))
 
     src = net.blobs['data']
     detail = np.zeros_like(octaves[-1]) # allocate image for network-produced details
-    print "KNOWN BAD"
     for octave, octave_base in enumerate(octaves[::-1]):
         h, w = octave_base.shape[-2:]
         if octave > 0:
@@ -103,6 +100,5 @@ def do_work(img):
     return deepdream(net,img)
 
 if __name__ == "__main__":
-  print "Main"
   l = cbaas.Listener(domain='greghale.io', on_job=do_work, function_name="deepdream", type="TModelImage -> TModelImage")
   print "Finished (why?)"
