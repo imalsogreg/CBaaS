@@ -30,10 +30,10 @@ net = caffe.Classifier('tmp.prototxt', param_fn,
 def preprocess(net, img):
     # Drop the alpha channel if there is one
     if np.shape(img)[2] == 4:
-        img = img[:,:,1:]
+        img = img[:,:,0:3]
     return np.float32(np.rollaxis(img, 2)[::-1]) - net.transformer.mean['data']
 def deprocess(net, img):
-    return np.dstack((img + net.transformer.mean['data'])[::-1])
+    return np.dstack((img + net.transformer.mean['data'])[::-1]) / 255
 
 def objective_L2(dst):
     dst.diff[:] = dst.data 
