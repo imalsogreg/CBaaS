@@ -64,7 +64,7 @@ functionListingItem k t = do
   item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
     elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
     text k
-  return $ k <$ domEvent Click item
+  return $ (k <> " #1") <$ domEvent Click item
 
 
 functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
