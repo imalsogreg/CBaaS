@@ -27,6 +27,7 @@ import Data.List (foldl', isInfixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, maybe)
 import Data.Monoid
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 import Data.Time (getCurrentTime)
@@ -64,7 +65,7 @@ functionListingItem k t = do
   item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
     elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
     text k
-  return $ k <$ domEvent Click item
+  return $ (k <> " #1") <$ domEvent Click item
 
 
 functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
@@ -189,33 +190,40 @@ functionPage doc = mdo
     divClass "right menu" $ elClass "a" "ui item" $
       functionListing' ((Map.fromList . map wpFunction . Map.elems . unEntityMap) <$> workers :: Dynamic t (Map.Map T.Text Type))
 
-  (e, inputWidgets) <- divClass "non-menu-content" $ do
+  jobsState <- foldDyn ($) mempty $ leftmost [Set.insert <$> jobs, Set.delete <$> resultReport]
+  let evalButtonState :: Dynamic t EvalStatus = zipDynWith
+        (\js exprValid -> if Set.null js
+                          then bool EvalInvalid EvalOk (isRight exprValid)
+                          else EvalWorking) jobsState (_expression_expr e)
+  evalButtonState' <- holdDyn EvalOk $ leftmost [updated evalButtonState, EvalWorking <$ _expression_go e]
+
+  (e, inputWidgets, jobs) <- divClass "non-menu-content" $ do
 
     e <- divClass "expression" $ do
       divClass "ui labeled input" $ do
         divClass "ui label" $ do
           text "cbaas:"
         expression def { _expressionConfig_updateEnvironment =  dEnv
-                       , _expressionConfig_valid = isRight <$> _expression_expr e
+                       , _expressionConfig_evalStatus = evalButtonState'
                        , _expressionConfig_setText = listingClicks
                        }
 
-    inputWidgets <- divClass "inputs-outputs" $ do
+    (inputWidgets, jobs) <- divClass "inputs-outputs" $ do
 
-      inputWidgets :: Dynamic t (Map.Map T.Text (Expr Type))<- divClass "inputs" $
+      inputWidgets <- divClass "inputs" $
         joinDynThroughMap <$>
         listWithKey (fmap (fromMaybe mempty) . fmap hush $ (fmap . fmap) widgetInventory (_expression_expr e)) (inputWidget doc)
 
       let furnishedExpr :: Dynamic t (Either T.Text (Expr Type)) =
             zipDynWith (\env' expr' -> resolveWidgetVars env' =<< expr') envWithWidgets (_expression_expr e)
 
-      dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr (_expression_go e))
+      jobs <- dumbEval env (fmapMaybe id $ fmap hush $ tagPromptlyDyn furnishedExpr (_expression_go e))
 
       elAttr "div" ("class" =: "results") $ viewResults resultReport
 
-      return inputWidgets
+      return (inputWidgets, jobs)
 
-    return (e, inputWidgets)
+    return (e, inputWidgets, jobs)
 
   return ()
 
@@ -241,9 +249,8 @@ inputWidget :: forall t m.(PostBuild t m,
 inputWidget doc k dynType = do
   inp <- dyn (ffor dynType $ \case
     TModelImage -> do
-      text (tShow k)
       imWid <- imageInputWidget doc def
---      display (ModelImage <$> imageInputWidget_image imWid)
+      text k
       return $ ELit TModelImage . VImage . ModelImage <$> imageInputWidget_image imWid)
   join <$> holdDyn (defVal <$> dynType) inp
 
@@ -320,16 +327,16 @@ dumbEval :: (DomBuilder t m,
               HasWebView m,
               MonadHold t m,
               HasWebView (Performable m)
-            ) => Dynamic t (Map.Map T.Text (Expr Type)) -> Event t (Expr Type) -> m ()
+            ) => Dynamic t (Map.Map T.Text (Expr Type)) -> Event t (Expr Type) -> m (Event t (EntityID Job))
 dumbEval env expr = do
-  performEvent_ $ (liftIO . print) <$> expr
-  performRequestAsync $ ffor expr $ \case
+  -- performEvent_ $ (liftIO . print) <$> expr
+  jobs <- performRequestAsync $ ffor expr $ \case
     EApp _ (ERemote _ ((EntityID wId), wProfile, funcName)) (ELit _ v) ->
       let url = "api1/callfun?worker-id=" <> T.pack (show wId)
           job = Job funcName v
       in  XhrRequest "POST"  url def { _xhrRequestConfig_sendData = (T.unpack $ E.decodeUtf8 . BSL.toStrict $ A.encode job)
                                      , _xhrRequestConfig_headers = "Content-Type" =: "application/json"}
-  return ()
+  return $ fmapMaybe id $ fmap (\x -> A.decode . BSL.fromStrict . E.encodeUtf8 =<< _xhrResponse_responseText x) jobs
 
 
 

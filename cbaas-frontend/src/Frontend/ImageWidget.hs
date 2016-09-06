@@ -67,7 +67,7 @@ data ImageInputWidgetConfig t = ImageInputWidgetConfig
   }
 
 instance Reflex t => Default (ImageInputWidgetConfig t) where
-  def = ImageInputWidgetConfig DrawSource never (320,240)
+  def = ImageInputWidgetConfig DrawSource never (480,360)
 
 data ImageInputWidget t = ImageInputWidget
   { imageInputWidget_image         :: Dynamic t Img
@@ -90,24 +90,10 @@ imageInputWidget :: forall t m.(PostBuild t m,
                  -> ImageInputWidgetConfig t
                  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
-  canv <- elAttr "div" ("class" =: "image-input" <> "style" =: ("width: " <> tShow wid <> "px;")) $ mdo
+  canv <- elAttr "div" ("class" =: "image-input" <> "style" =: ("width: " <> tShow wid <> "px;" <> "height:" <> tShow hei <> "px;")) $ mdo
 
-    (canvasActions, imgSrc) <- divClass "input-bar" $ do
-      (imgSrcSet, canvasActions) <- divClass "input-select ui secondary pointing menu" $ do
-        let itemClass target = fmap (("class" =:) . bool "item" "item active" . (==target)) imgSrc
-        fs     <- fmap (FileSource   <$ ) $ iconButton "file" (itemClass FileSource)
-        wc     <- fmap (WebcamSource <$ ) $ iconButton "photo" (itemClass WebcamSource)
-        dr     <- fmap (DrawSource   <$ ) $ iconButton "write" (itemClass DrawSource)
-        imgSrc <- holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
-        canvasEvents <- dyn $ ffor imgSrc $ \case
-          WebcamSource -> blank
-          FileSource -> text "TODO"
-          DrawSource -> drawingElements ctx
-          NoSource   -> blank
-        return (imgSrc, canvasEvents)
-      return (canvasActions, imgSrcSet) -- TODO is this return value needed
 
-    canv <- elAttr "div" ("class" =: "canvas-area" <> "style" =: "position:relative") $ mdo
+    canv <- divClass "canvas-container" $ elAttr "div" ("class" =: "canvas-area" <> "style" =: "position:relative") $ mdo
       canv <- drawingArea okToDraw (() <$ cameraActions) never def {_drawingAreaConfig_geom = (wid,hei)}
       clicks :: Event t (Event t ()) <- dyn $ ffor (fmap (== WebcamSource) imgSrc) $ \b ->
         if b
@@ -120,13 +106,35 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
                 b  <- iconButton "mail forward" (constDyn $ "style" =: ("position: absolute; left: 0px; top: 0px;" <>
                                                                         " color: white; text-shadow: 0px 0px 2px black;"))
                 performEvent_ $ ffor b $ \() -> do
-                  liftIO $ drawImageFromVideoScaled ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float) (320 :: Float) (240 :: Float)
+                  liftIO $ drawImageFromVideoScaled ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float) (fromIntegral wid :: Float) (fromIntegral hei :: Float)
                 return b
         else return never
       clicks' <- holdDyn never clicks
       cameraActions <- delay 0 $ switchPromptlyDyn clicks'
-
       return canv
+
+
+    (canvasActions, imgSrc) <- divClass "input-bar" $ mdo
+
+      let barAttrs = ffor visible $ \b -> ("class" =: "input-select ui secondary pointing menu input-bar-items") <> bool ("style" =: "display:none;") mempty b
+      (imgSrcSet, canvasActions) <- elDynAttr "div" barAttrs  $ do
+         let itemClass target = fmap (("class" =:) . bool "item" "item active" . (==target)) imgSrc
+         fs     <- fmap (FileSource   <$ ) $ iconButton "file" (itemClass FileSource)
+         wc     <- fmap (WebcamSource <$ ) $ iconButton "photo" (itemClass WebcamSource)
+         dr     <- fmap (DrawSource   <$ ) $ iconButton "write" (itemClass DrawSource)
+         imgSrc <- holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
+         canvasEvents <- dyn $ ffor imgSrc $ \case
+           WebcamSource -> blank
+           FileSource -> text "TODO"
+           DrawSource -> drawingElements ctx
+           NoSource   -> blank
+         return (imgSrc, canvasEvents)
+
+      visible :: Dynamic t Bool <- toggle True =<< (domEvent Click) . fst <$> elAttr' "dyn" ("class" =: "input-bar-hideaway") (dynText (bool "◀" "▶" <$> visible))
+
+      -- return canv
+
+      return (canvasActions, imgSrcSet) -- TODO is this return value needed
 
     -- afterCanvasActions <- delay 0 flatActions
     let okToDraw = fmap (== DrawSource) imgSrc
@@ -291,7 +299,7 @@ displayImg' :: (DomBuilderSpace m ~ GhcjsDomSpace,
                 PostBuild t m,
                 PerformEvent t m) => ModelImage -> m () 
 displayImg' (ModelImage jp) = do
-  let dataUrl = ("data:image/jpeg;base64," <>) . T.decodeUtf8 . B64.encode . BSL.toStrict . JP.encodeJpeg . JP.convertImage . JP.pixelMap JP.dropTransparency $ jp
+  let dataUrl = ("data:image/jpeg;base64," <>) . T.decodeUtf8 . B64.encode . BSL.toStrict . JP.encodeJpegAtQuality 100 . JP.convertImage . JP.pixelMap JP.dropTransparency $ jp
   elAttr "img" ("src" =: dataUrl) blank
 
 -------------------------------------------------------------------------------
