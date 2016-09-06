@@ -186,7 +186,7 @@ imageToBytes :: ModelImage -> BS.ByteString
 imageToBytes (ModelImage i) = B64.encode . BL.toStrict . encodeTiff $ i
 
 imageFromBytes :: BS.ByteString -> Either String ModelImage
-imageFromBytes bs = fmap (ModelImage . convertRGBA8) $ decodeImage =<< B64.decode bs
+imageFromBytes bs = fmap (ModelImage . convertRGBA8) $ decodeTiff =<< B64.decode bs
 
 instance Show ModelImage where
   show = BS.unpack . imageToBytes
