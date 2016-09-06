@@ -28,17 +28,20 @@ data ExpressionConfig t = ExpressionConfig
  , _expressionConfig_updateEnvironment :: Event t (Map.Map T.Text (Maybe (Expr Type)))
  , _expressionConfig_workers :: Dynamic t WorkerProfileMap
  , _expressionConfig_setText :: Event t T.Text
- , _expressionConfig_valid :: Dynamic t Bool
+ , _expressionConfig_evalStatus :: Dynamic t EvalStatus
  }
 
 instance Reflex t => Default (ExpressionConfig t) where
-  def = ExpressionConfig (constDyn mempty) mempty never (constDyn $ EntityMap mempty) never (constDyn True)
+  def = ExpressionConfig (constDyn mempty) mempty never (constDyn $ EntityMap mempty) never (constDyn EvalOk)
 
 data Expression t = Expression
   { _expression_text :: Dynamic t T.Text
   , _expression_expr :: Dynamic t (Either T.Text (Expr Type))
   , _expression_go :: Event t ()
   }
+
+data EvalStatus = EvalOk | EvalInvalid | EvalWorking
+  deriving (Eq)
 
 mapUnionWithSpace :: (Ord k) => Map.Map k T.Text -> Map.Map k T.Text -> Map.Map k T.Text
 mapUnionWithSpace = Map.unionWith (\a b -> a <> " " <> b)
@@ -53,7 +56,12 @@ expression (ExpressionConfig textAttrs env0 dEnv workers setText valid) =
                            , _textInputConfig_attributes = zipDynWith mapUnionWithSpace textAttrs internalAttrs
                            })
 
-        let btnAttrs = ("class" =:) . bool " disabled send icon" "circular inverted send link icon" <$> valid
+        let btnAttrs =
+              ffor valid $ \v -> let c = case v of
+                                       EvalOk -> "circular inverted send link icon"
+                                       EvalInvalid -> " disabled send icon"
+                                       EvalWorking -> "circular inverted loading spinner link icon"
+                                 in ("class" =: c)
         (btn,_) <- elDynAttr' "i" btnAttrs blank
         env <- foldDyn applyMap env0 dEnv
 
