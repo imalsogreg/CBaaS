@@ -83,7 +83,9 @@ class Listener:
 
             r = self._on_job(v)
 
+            print "ABOUT TO ENCODE"
             cbaas_r = _encode_cbaas_value(r, retTypeOfType(ty))
+            print "FINISHED ENCODE"
             msg_r = {'tag':'WorkerFinished',
                      'contents':[
                          msg['contents'][0],
@@ -91,8 +93,11 @@ class Listener:
                      ]}
             job_result = {'job': msg['contents'][0], 'value': cbaas_r }
             # ws.send(dumps(msg_r))
+            print "ABOUT TO SEND"
             resp = requests.post(respUrl, params=respParams,
                                  json=job_result, headers=respHeaders)
+            print "SENT"
+            show_resp(resp)
 
         else:
             try:
@@ -176,14 +181,23 @@ def _encode_cbaas_value(v,ty):
     elif (t == type('A string') or t == type(u'A unicode string')):
         return {'tag':'VText', 'contents':v}
     elif (ty == 'TModelImage'):
-        s = StringIO()
-        skimage.io.imsave(s, arr=numpy.uint8(v), plugin='pil')
-        imgdat = base64.b64encode(s.getvalue())
 
-        mi = {'tag': 'ModelImage',
-              'contents': imgdat}
-        v = {'tag':'VImage', 'contents': (mi) }
+        # s = StringIO()
+        # skimage.io.imsave(s, arr=numpy.uint8(v), plugin='pil')
+        # skimage.io.imsave('./output_image.png', numpy.uint8(v))
+        # imgdat = base64.b64encode(s.getvalue())
+
+        # mi = {'tag': 'ModelImage',
+        #       'contents': imgdat}
+        # v = {'tag':'VImage', 'contents': (mi) }
+        # return v
+        print "ABOUT TO GET BYTES"
+        img_bytes = _bytes_through_tmp_image(v)
+        print "GOT BYTES"
+        v = {'tag':'VImage', 'contents': {'tag':'ModelImage', 'contents': base64.b64encode(img_bytes) }}
+        print "RETURN"
         return v
+
     elif (t == type(numpy.array([[1,2],[3,4]]))):
         return {'tag':'VMat',
                 'contents': map( _encode_cbaas_value, v.toList()) }
@@ -237,11 +251,31 @@ def _load_through_tmp_image(blob):
         t  = tempfile.mkstemp(suffix=('.' + mimetype))
         with open(t[1],'wb') as tf:
             tf.write(blob)
-        i = skimage.img_as_float(skimage.io.imread(t[1]))
+        i = skimage.img_as_ubyte(skimage.io.imread(t[1]))
+        skimage.io.imsave('./input_img.png',i)
         remove(t[1])
         return i
     else:
         raise Exception('Could not determine image format')
+
+def _bytes_through_tmp_image(arr):
+    """Retrieve binary blob for a numpy array image"""
+    mimetype = 'png'
+    arr_min = numpy.min(arr)
+    arr_max = numpy.max(arr)
+    # if (arr_max > 1) & (arr_max <= 255):
+        # arr = arr / 255 # numpy.uint8(arr)
+    print "MIN:"
+    print numpy.min(arr)
+    print "MAX:"
+    print numpy.max(arr)
+    t = tempfile.mkstemp( suffix = ('.' + mimetype) )
+    with open(t[1],'wb') as tf:
+        skimage.io.imsave(tf, skimage.img_as_ubyte(arr))
+    with open(t[1],'rb') as tf:
+        d = tf.read()
+    #remove(t[1])
+    return d
 
 # This main function is only meant for testing this library.
 # Not meant for external use.
@@ -257,3 +291,11 @@ if __name__ == "__main__":
 # TODO: Fix. This will break on (Int -> Int) -> Int
 def retTypeOfType(ty):
     return ty.split('->',1)[1].strip()
+
+def show_resp(resp):
+    print "Response code:"
+    print resp.status_code
+    print "Response text:"
+    print resp.text
+    print "Response: "
+    print resp
