@@ -252,7 +252,7 @@ def _load_through_tmp_image(blob):
         with open(t[1],'wb') as tf:
             tf.write(blob)
         i = skimage.img_as_ubyte(skimage.io.imread(t[1]))
-        skimage.io.imsave('./input_img.png',i)
+        skimage.io.imsave('./input_img.tiff',i)
         remove(t[1])
         return i
     else:
@@ -260,7 +260,7 @@ def _load_through_tmp_image(blob):
 
 def _bytes_through_tmp_image(arr):
     """Retrieve binary blob for a numpy array image"""
-    mimetype = 'png'
+    mimetype = 'tiff'
     arr_min = numpy.min(arr)
     arr_max = numpy.max(arr)
     # if (arr_max > 1) & (arr_max <= 255):
@@ -274,6 +274,7 @@ def _bytes_through_tmp_image(arr):
         skimage.io.imsave(tf, skimage.img_as_ubyte(arr))
     with open(t[1],'rb') as tf:
         d = tf.read()
+    skimage.io.imsave("./output_img.tiff", skimage.img_as_ubyte(arr))
     #remove(t[1])
     return d
 
