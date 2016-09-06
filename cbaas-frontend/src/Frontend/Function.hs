@@ -241,9 +241,8 @@ inputWidget :: forall t m.(PostBuild t m,
 inputWidget doc k dynType = do
   inp <- dyn (ffor dynType $ \case
     TModelImage -> do
-      text (tShow k)
       imWid <- imageInputWidget doc def
---      display (ModelImage <$> imageInputWidget_image imWid)
+      text k
       return $ ELit TModelImage . VImage . ModelImage <$> imageInputWidget_image imWid)
   join <$> holdDyn (defVal <$> dynType) inp
 
