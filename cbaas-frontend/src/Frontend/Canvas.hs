@@ -70,7 +70,7 @@ data DrawingAreaConfig t = DrawingAreaConfig
   }
 
 defDAC :: Reflex t => DrawingAreaConfig t
-defDAC = DrawingAreaConfig never (constant 10) (constant "black") never never (320,240)
+defDAC = DrawingAreaConfig never (constant 10) (constant "black") never never (640,480)
 
 instance Reflex t => Default (DrawingAreaConfig t) where
   def = defDAC

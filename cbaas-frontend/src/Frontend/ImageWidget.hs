@@ -67,7 +67,7 @@ data ImageInputWidgetConfig t = ImageInputWidgetConfig
   }
 
 instance Reflex t => Default (ImageInputWidgetConfig t) where
-  def = ImageInputWidgetConfig DrawSource never (320,240)
+  def = ImageInputWidgetConfig DrawSource never (480,360)
 
 data ImageInputWidget t = ImageInputWidget
   { imageInputWidget_image         :: Dynamic t Img
@@ -106,7 +106,7 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
                 b  <- iconButton "mail forward" (constDyn $ "style" =: ("position: absolute; left: 0px; top: 0px;" <>
                                                                         " color: white; text-shadow: 0px 0px 2px black;"))
                 performEvent_ $ ffor b $ \() -> do
-                  liftIO $ drawImageFromVideoScaled ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float) (320 :: Float) (240 :: Float)
+                  liftIO $ drawImageFromVideoScaled ctx (Just (castToHTMLVideoElement $ _element_raw  wc)) (0 :: Float) (0 :: Float) (fromIntegral wid :: Float) (fromIntegral hei :: Float)
                 return b
         else return never
       clicks' <- holdDyn never clicks
