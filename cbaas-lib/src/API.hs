@@ -15,7 +15,7 @@ import qualified Data.UUID.Types     as UUID
 import           Data.UUID.Types     (UUID, fromText, toText)
 import           Servant.API   ((:>), (:<|>), Get, Post, Put, Delete, JSON
                                ,Capture, ReqBody, Raw, FormUrlEncoded
-                               ,QueryParam, QueryParams)
+                               ,NoContent, QueryParam, QueryParams)
 import           EntityID
 import           Permissions
 import           WorkerProfile
@@ -44,7 +44,7 @@ type API1 =
             "returnfun" :> QueryParam "worker-id" (EntityID WorkerProfile)
                         :> QueryParam "job-id" (EntityID Job)
                         :> ReqBody '[JSON] JobResult
-                        :> Post '[] ()
+                        :> Post '[JSON] NoContent
        :<|>
             "browserupdates" :> Raw
        :<|>
@@ -66,7 +66,7 @@ type UserAPI =
 
   :<|> "currentuser" :> Get '[JSON] (Maybe Int) -- AuthID
 
-  :<|> "logout"      :> Post '[JSON] ()
+  :<|> "logout"      :> Post '[JSON] NoContent
 
 
 ------------------------------------------------------------------------------

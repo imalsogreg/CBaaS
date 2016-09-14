@@ -31,5 +31,11 @@ reflex-platform.ghc.override {
      snap-loader-static  = dontCheck (self.callPackage (cabal2nixResult ../deps/snap-loader-static) {});
      snap-loader-dynamic = dontCheck (self.callPackage (cabal2nixResult ../deps/snap-loader-dynamic) {});
 
+     servant             = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant) {});
+     servant-foreign     = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-foreign) {});
+     servant-js          = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-js) {});
+     servant-docs        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-docs) {});
+     http-api-data       = dontCheck (self.callPackage (cabal2nixResult ../deps/http-api-data) {});
+     Glob                = dontCheck (self.callPackage (cabal2nixResult ../deps/glob) {});
   };
 }

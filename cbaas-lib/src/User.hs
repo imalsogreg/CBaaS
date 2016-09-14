@@ -6,6 +6,7 @@ module User where
 import Data.Aeson
 import Data.Text
 import GHC.Generics
+import Web.FormUrlEncoded
 import Servant.API
 
 data User = User
@@ -24,6 +25,10 @@ data LoginInfo = LoginInfo
 instance ToJSON   LoginInfo where
 instance FromJSON LoginInfo where
 
+instance FromForm LoginInfo
+instance ToForm LoginInfo
+
+{-
 instance FromFormUrlEncoded LoginInfo where
   fromFormUrlEncoded xs = case res of
     Just li -> Right li
@@ -36,6 +41,7 @@ instance FromFormUrlEncoded LoginInfo where
                                                -- query param comes in?
                    _           -> return False
             return (LoginInfo u p l)
+-}
 
 
 data RegisterInfo = RegisterInfo
@@ -46,6 +52,9 @@ data RegisterInfo = RegisterInfo
 instance ToJSON   RegisterInfo where
 instance FromJSON RegisterInfo where
 
+instance ToForm RegisterInfo
+instance FromForm RegisterInfo
+{-
 instance FromFormUrlEncoded RegisterInfo where
   fromFormUrlEncoded xs = case res of
     Just ri -> Right ri
@@ -54,3 +63,4 @@ instance FromFormUrlEncoded RegisterInfo where
                 <$> lookup "username" xs
                 <*> lookup "password" xs
 
+-}

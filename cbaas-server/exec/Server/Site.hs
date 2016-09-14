@@ -92,7 +92,7 @@ routes = [ ("login"   , with auth handleLoginSubmit)
          , ("test"    , writeBS "Test handler")
          , ("logout"  , with auth handleLogout)
          , ("new_user", with auth handleNewUser)
-         , ("api1"    , applicationToSnap (serve (Proxy :: Proxy API1) serverAPI))
+         , ("api1"    , (serveSnap (Proxy :: Proxy API1) serverAPI))
          , ("f"       ,  render "function")
          , (""        , serveDirectory "static" )
          , (""        , render "function") -- TODO

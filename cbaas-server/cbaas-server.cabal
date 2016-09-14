@@ -29,7 +29,7 @@ library
                      , groundhog >= 0.7.0.3 && < 0.8
                      , groundhog-th
                      , heist >= 1.0 && < 1.1
-                     , http-api-data >= 0.2 && < 0.3
+                     , http-api-data >= 0.3 && < 0.4
                      , JuicyPixels >= 3.2.7 && < 3.8
                      , lens >= 4.8 && < 4.15
                      , map-syntax

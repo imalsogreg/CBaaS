@@ -106,12 +106,14 @@ instance FromHttpApiData (EntityID a) where
 instance ToHttpApiData (EntityID a) where
   toUrlPiece (EntityID u) = UUID.toText u
 
+{-
 instance FromFormUrlEncoded (EntityID a) where
   fromFormUrlEncoded [("id", t)] =
     case UUID.fromText t of
       Nothing -> Left . unpack $ "Id parse error on text:" <> t
       Just i  -> Right $ EntityID i
   fromFormUrlEncoded _ = Left "No query param 'id'"
+-}
 
 -- instance ToRow (EntityID a) where
 --   toRow i = [toField i]

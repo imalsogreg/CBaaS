@@ -154,7 +154,7 @@ functionPage doc = mdo
   t0 <- liftIO getCurrentTime
   tick <- tickLossy 1 t0
   browserURL <- unrelativizeWebSocketUrl doc "/api1/browserupdates"
-  ws <- webSocket browserURL (WebSocketConfig wsSends)
+  ws <- webSocket browserURL (WebSocketConfig (wsSends :: Event t [T.Text]))
   let msg = decoded (_webSocket_recv ws)
   let x  = msg :: Event t BrowserMessage
 

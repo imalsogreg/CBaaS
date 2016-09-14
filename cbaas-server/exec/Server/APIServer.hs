@@ -82,7 +82,7 @@ serverAuth =
         mu <- with auth currentUser
         return $ fmap (either error id . getUserId) mu
 
-      logoutServer = with auth logout
+      logoutServer = with auth logout >> return NoContent
 
       getUserId :: AuthUser -> Either String Int
       getUserId u = do
@@ -146,13 +146,14 @@ callfun (Just wID :: Maybe WorkerProfileId) job = do
 returnFun :: Maybe WorkerProfileId
           -> Maybe (EntityID Job)
           -> JobResult
-          -> AppHandler ()
+          -> AppHandler NoContent
 returnFun Nothing _ _     = err300 "Missing required parameter worker-id"
 returnFun _ Nothing _     = err300 "Missing required parameter job-id"
 returnFun (Just wID) (Just jobID) jr = do
   k <- runGH $ GH.insert jr
   liftIO $ putStrLn $ "INSERTION KEY: " ++ show k
   broadcastBrowsers (JobFinished jobID)
+  return NoContent
   -- resolveJob jr
 
 broadcastBrowsers :: BrowserMessage -> AppHandler ()
@@ -189,12 +190,16 @@ serveWorkerWS (Just wName) (Just fName) (Just fType) = do
   runWebSocketsSnap $ \pending -> do
     print "Running"
     runWorker pending (WorkerProfile wName (fName, fType)) wks brs
+  return ()
 serveWorkerWS Nothing _ _ = do
   liftIO $ print "No name"
   writeBS "Please give a 'worker' parameter"
+  return ()
 serveWorkerWS _ Nothing _ = do
   liftIO $ print "No function"
   writeBS "Please give a 'function' parameter"
+  return ()
 serveWorkerWS _ _ Nothing = do
   liftIO $ print "No type"
   writeBS "Please give a 'type' parameter"
+  return ()
