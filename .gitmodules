@@ -1,6 +1,9 @@
 [submodule "deps/servant-snap"]
 	path = deps/servant-snap
 	url = http://github.com/haskell-servant/servant-snap
+[submodule "deps/servant"]
+	path = deps/servant
+	url = http://github.com/haskell-servant/servant
 [submodule "deps/snaplet-postgresql-simple"]
 	path = deps/snaplet-postgresql-simple
 	url = http://github.com/mightybyte/snaplet-postgresql-simple
