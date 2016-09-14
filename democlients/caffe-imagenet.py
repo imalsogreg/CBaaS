@@ -4,10 +4,14 @@ import os
 import matplotlib.pyplot as plt
 from base64 import b64encode
 
+try:
+  caffe.set_gpu_mode()
+except:
+  print "CPU Mode"
 
-plt.rcParams['figure.figsize'] = (10, 10)
-plt.rcParams['image.interpolation'] = 'nearest'
-plt.rcParams['image.cmap'] = 'gray'
+#plt.rcParams['figure.figsize'] = (10, 10)
+#plt.rcParams['image.interpolation'] = 'nearest'
+#plt.rcParams['image.cmap'] = 'gray'
 
 caffe_root = '/Users/greghale/Programming/caffe/'
 

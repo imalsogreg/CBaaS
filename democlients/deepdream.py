@@ -9,6 +9,11 @@ from google.protobuf import text_format
 import caffe
 import cbaas
 
+try:
+  caffe.set_gpu_mode()
+except:
+  print "CPU mode
+
 caffe_root = '/Users/greghale/Programming/caffe/'
 
 model_path = caffe_root + 'models/bvlc_googlenet/'
