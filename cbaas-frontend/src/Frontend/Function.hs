@@ -1,12 +1,14 @@
 {-# language CPP #-}
 {-# language GADTs #-}
 {-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
 {-# language RankNTypes #-}
 {-# language RecursiveDo #-}
 {-# language LambdaCase  #-}
 {-# language RankNTypes  #-}
 {-# language OverloadedStrings  #-}
 {-# language JavaScriptFFI #-}
+{-# language TypeSynonymInstances #-}
 {-# language ScopedTypeVariables  #-}
 
 module Frontend.Function where
@@ -18,6 +20,7 @@ import Control.Monad.Exception (MonadAsyncException)
 import Control.Monad.Fix (MonadFix)
 import Control.Monad.Ref (MonadRef, Ref)
 import qualified Data.Aeson as A
+import           Data.Aeson ((.=))
 import Data.Bool (bool)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -45,6 +48,8 @@ import BrowserProfile
 import EntityID
 #ifdef ghcjs_HOST_OS
 import GHCJS.DOM.Document (getLocation)
+import GHCJS.Marshal
+import GHCJS.Types (JSVal)
 #endif
 import GHCJS.DOM.Location
 
@@ -121,6 +126,7 @@ viewResults resultIds = do
   widgetHold blank $ ffor results $ \case
     Just (JobResult (VImage mi) _) -> displayImg' mi
     Just (JobResult (VText t) _ ) -> text t
+    Just (JobResult (VLabelProbs ps) _ ) -> displayLabelProbs ps
     Nothing -> text "Nothing"
     _ -> text "Non-image result"
   blank
@@ -182,7 +188,7 @@ functionPage doc = mdo
 
   let env  :: Dynamic t (Map.Map T.Text (Expr Type)) = ffor workers $ \(EntityMap wm) -> Map.fromList . fmap remoteCallToVal $ Map.toList wm
       envWithWidgets :: Dynamic t (Map.Map T.Text (Expr Type)) = zipDynWith (<>) env inputWidgets
-      dEnv = ffor (leftmost [updated env, tagDyn env pb]) $ \e -> Map.map Just e
+      dEnv = ffor (leftmost [updated env, tagPromptlyDyn env pb]) $ \e -> Map.map Just e
 
   listingClicks <- divClass "ui menu" $ do
     elClass "a" "item" $ text "cbaas"
@@ -359,7 +365,49 @@ unrelativizeWebSocketUrl doc s = do
           else liftIO $ getPathname loc
   return $ newProto <> "//" <> host <> path <> s
 
+-- TODO: This crashes if run too early (before Plotly.js is done loading)
+displayLabelProbs :: (DomBuilder t m, PostBuild t m, PerformEvent t m, MonadIO m, MonadIO (Performable m)) => [(T.Text, Double)] -> m ()
+displayLabelProbs lps = do
+  pb <- getPostBuild
+  elAttr "div" ("id" =: "plotly-area" <> "style" =: "height:360px;") blank
+  performEvent_ $ (liftIO $ runPlotlyLayout obj layout) <$ pb
+  where obj      = [dat]
+        layout   = A.object [ "margin" .= A.object
+                              ["t" .= (0::Int)
+                              ,"b" .= (20::Int)
+                              ,"l" .= (200::Int)
+                              ,"r" .= (120::Int)
+                              ]
+                            , "height" .= ("360" :: T.Text)]
+        dat      = A.object [ "y"           .= labels
+                            , "x"           .= probs
+                            , "type"        .= ("bar" :: T.Text)
+                            , "orientation" .= ("h" :: T.Text)]
+        (labels,probs) = unzip $ reverse lps
+
 #ifdef ghcjs_HOST_OS
+
+runPlotly :: A.ToJSON a => a -> IO ()
+runPlotly dat = js_runPlotly =<< toJSVal_aeson dat
+
+runPlotlyLayout :: (A.ToJSON a, A.ToJSON b) => a -> b -> IO ()
+runPlotlyLayout dat layout = toJSVal_aeson dat >>= \a -> toJSVal_aeson layout >>= \b -> js_runPlotlyLayout a b
+
+runPlotlyLayoutOptions :: (A.ToJSON a, A.ToJSON b, A.ToJSON c) => a -> b -> c -> IO ()
+runPlotlyLayoutOptions dat layout options = toJSVal_aeson options >>= \o -> toJSVal_aeson layout >>= \l -> toJSVal_aeson dat >>= \d -> js_runPlotlyLayoutOptions d l o
+
+
+foreign import javascript unsafe "Plotly.plot('plotly-area', $1)"
+  js_runPlotly :: JSVal -> IO ()
+
+foreign import javascript unsafe "Plotly.plot('plotly-area', $1, $2)"
+  js_runPlotlyLayout :: JSVal -> JSVal -> IO ()
+
+foreign import javascript unsafe "Plotly.plot('plotly-area', $1, $2, $3)"
+  js_runPlotlyLayoutOptions :: JSVal -> JSVal -> JSVal -> IO ()
+
+
+
 foreign import javascript safe "$('.ui.dropdown').dropdown(); console.log('test')"
   initDropdown :: IO ()
 #else
@@ -368,4 +416,10 @@ getHost = undefined
 getPathname = undefined
 getLocation = undefined
 getProtocol = undefined
+runPlotly = undefined
+toJSVal_aeson = undefined
+runPlotlyLayout = undefined
+runPlotlyLayoutOptions = undefined
+instance IsXhrPayload String where
+  xmlHttpRequestSend = undefined
 #endif

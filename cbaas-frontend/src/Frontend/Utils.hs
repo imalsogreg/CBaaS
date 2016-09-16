@@ -3,6 +3,7 @@
 {-# language OverloadedStrings  #-}
 {-# language GADTs  #-}
 {-# language FlexibleContexts  #-}
+{-# language ScopedTypeVariables  #-}
 
 module Frontend.Utils where
 
@@ -71,6 +72,5 @@ editableWidget isEditor w redraw = mdo
         return (gate (fmap drawPredicate (current editing)) clicks)
 
   ea <- elClass "div" "editable-div" (widgetHold runEditing (runEditing <$ redraw))
-  e <- joinDyn <$> mapDyn fst ea
-  a <- mapDyn snd ea
-  return (a, e, never)
+  e :: Dynamic t ActionState <- joinDyn <$> mapDyn fst ea
+  return (snd <$> ea, e, never)

@@ -6,6 +6,7 @@
 
 .expression {
   margin: 20px;
+  margin-bottom:50px;
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -22,11 +23,10 @@
 }
 
 .inputs {
-  max-width: 49%;
 }
 
 .results {
-  max-width: 49%;
+    width:49%;
 }
 
 .image-input {
