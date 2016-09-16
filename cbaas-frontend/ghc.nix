@@ -13,5 +13,11 @@ reflex-platform.ghc.override {
      groundhog-ghcjs      = dontCheck (self.callPackage (cabal2nixResult ../deps/groundhog-ghcjs) {});
      groundhog-postgresql = null;
      cbaas-lib            = dontCheck (self.callPackage ../cbaas-lib {  });
+     http-api-data        = dontCheck (self.callPackage (cabal2nixResult ../deps/http-api-data) {  });
+     servant        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant) {  });
+     servant-js        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-js) {  });
+     servant-foreign        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-foreign) {  });
+     servant-docs        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-docs) {  });
+
   };
 }
