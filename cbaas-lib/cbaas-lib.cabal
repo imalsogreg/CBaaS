@@ -84,7 +84,6 @@ test-suite spec
                  aeson,
                  cbaas-lib,
                  generics-sop,
-                 hspec >= 2.2 && < 2.3, 
                  JuicyPixels,
                  QuickCheck >= 2.8 && < 2.9,
                  text,
