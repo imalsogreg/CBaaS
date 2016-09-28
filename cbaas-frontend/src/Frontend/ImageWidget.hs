@@ -125,20 +125,18 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
          imgSrc <- holdDyn src0 $ leftmost [dSrc, fs, wc, dr]
          canvasEvents <- dyn $ ffor imgSrc $ \case
            WebcamSource -> blank
-           FileSource -> text "TODO"
+           FileSource -> loadAndDraw (_drawingArea_el canv)
            DrawSource -> drawingElements ctx
            NoSource   -> blank
          return (imgSrc, canvasEvents)
 
-      visible :: Dynamic t Bool <- toggle True =<< (domEvent Click) . fst <$> elAttr' "dyn" ("class" =: "input-bar-hideaway") (dynText (bool "◀" "▶" <$> visible))
-
-      -- return canv
+      visible :: Dynamic t Bool <- toggle True =<< (domEvent Click) . fst <$>
+        elAttr' "dyn" ("class" =: "input-bar-hideaway") (dynText (bool "◀" "▶" <$> visible))
 
       return (canvasActions, imgSrcSet) -- TODO is this return value needed
 
     -- afterCanvasActions <- delay 0 flatActions
     let okToDraw = fmap (== DrawSource) imgSrc
-    -- flatActions :: Event t CanvasAction <- fmap switchPromptlyDyn $ holdDyn never canvasActions
     let canvEl = castToHTMLCanvasElement $ _element_raw $ _drawingArea_el canv
     Just ctx :: Maybe CanvasRenderingContext2D <- liftIO $ fromJSVal =<< getContext canvEl ("2d" :: JSString)
     -- performEvent_ $ (fmap (\a -> liftIO $ a canvEl ctx) flatActions)
@@ -151,16 +149,16 @@ imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
 
 drawingElements :: (PostBuild t m,
                     DomBuilder t m,
-                                MonadIO m,
-                                MonadFix m,
-                                MonadIO (Performable m),
-                                TriggerEvent t m,
-                                PerformEvent t m,
-                                HasWebView m,
-                                MonadHold t m,
-                                HasWebView (Performable m),
-                                PerformEvent t (Performable m),
-                                DomBuilderSpace m ~ GhcjsDomSpace) => CanvasRenderingContext2D -> m ()
+                    MonadIO m,
+                    MonadFix m,
+                    MonadIO (Performable m),
+                    TriggerEvent t m,
+                    PerformEvent t m,
+                    HasWebView m,
+                    MonadHold t m,
+                    HasWebView (Performable m),
+                    PerformEvent t (Performable m),
+                    DomBuilderSpace m ~ GhcjsDomSpace) => CanvasRenderingContext2D -> m ()
 drawingElements ctx = do
   color  <- updated . value <$> textInput def { _textInputConfig_inputType = "color"}-- TODO actual color picker
   performEvent_ $ ffor color (\c -> setStrokeStyle ctx (Just $ CanvasStyle $ jsval ((jsPack $ T.unpack c :: JSString))))
@@ -279,60 +277,82 @@ fileImageLoader = do
 
   return imgs
 
+loadAndDraw :: (DomBuilderSpace m ~ GhcjsDomSpace,
+                MonadFix m,
+                MonadIO m,
+                TriggerEvent t m,
+                PerformEvent t (Performable m),
+                HasWebView m,
+                HasWebView (Performable m),
+                MonadHold t m,
+                HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+                MonadIO (Performable m),
+                DomBuilder t m,
+                PostBuild t m,
+                PerformEvent t m) => El t -> m ()
+loadAndDraw canvEl = do
+  imgs :: Event t (Maybe (Either String Img, T.Text)) <- fmap Just <$> fileImageLoader
+  let iWidget :: Maybe (Either String Img, T.Text) -> Maybe T.Text
+      iWidget img = case img of
+        Just (Right _, bytes) -> Just bytes
+        _                     -> Nothing
+      tmpWidgets :: Event t T.Text
+      tmpWidgets = fmapMaybe id $ fmap iWidget imgs
+  -- let tempWidgets = fmapMaybe (\ms -> bool (return never) (let (Just (_,bytes)) = ms in displayImg bytes canvEl) (isJustRight ms)) imgs
+  widgetHold (return never) (fmap (flip displayImg canvEl) tmpWidgets)
+  blank
+
+isJustRight :: Maybe (Either e a) -> Bool
+isJustRight (Just (Right a)) = True
+isJustRight _ = False
+
 -------------------------------------------------------------------------------
 viewSingleton :: [a] -> Maybe a
 viewSingleton    [x] =  Just x
 viewSingleton     _  =  Nothing
 
--- -------------------------------------------------------------------------------
--- -- imageWidget :: MonadWidget t m => ImageWidgetConfig t -> m (ImageWidget t)
--- imageWidget (ImageWidgetConfig img0 dImg base0 dBase iSrcType) =
---   divClass "image-widget" $ mdo
---     baseImg <- holdDyn undefined undefined
---     undefined
---     undefined
 
-displayImg' :: (DomBuilderSpace m ~ GhcjsDomSpace,
-                HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+displayImg' :: (HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
                 MonadIO (Performable m),
                 DomBuilder t m,
                 PostBuild t m,
-                PerformEvent t m) => ModelImage -> m () 
+                PerformEvent t m) => ModelImage -> m ()
 displayImg' (ModelImage jp) = do
   let dataUrl = ("data:image/jpeg;base64," <>) . T.decodeUtf8 . B64.encode . BSL.toStrict . JP.encodeJpegAtQuality 100 . JP.convertImage . JP.pixelMap JP.dropTransparency $ jp
   elAttr "img" ("src" =: dataUrl) blank
 
 -------------------------------------------------------------------------------
 -- displayImg :: MonadWidget t m => Dynamic t T.Text -> m ()
-displayImg ::(DomBuilderSpace m ~ GhcjsDomSpace,
-                         HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
-                         MonadIO (Performable m),
-                         DomBuilder t m,
-                         PostBuild t m,
-                         PerformEvent t m) => Dynamic t T.Text -> m ()
-displayImg dImgUrl = do
+displayImg :: (DomBuilderSpace m ~ GhcjsDomSpace,
+               HasDomEvent t (Element EventResult GhcjsDomSpace t) 'LoadTag,
+               MonadIO (Performable m),
+               DomBuilder t m,
+               PostBuild t m,
+               PerformEvent t m) => T.Text -> El t -> m (Event t (Maybe (Either String Img, T.Text)))
+displayImg imgUrl canv = do
   pb <- getPostBuild
 
-  imgEl   <- fst <$> elDynAttr' "img" (ffor dImgUrl (\src -> "src" =: src
-                                    <> "style" =: "display:none;")) (return ())
+  imgEl   <- fst <$> elAttr' "img" ("src" =: imgUrl
+                                    <> "style" =: "display:none;") (return ())
   let htmlImg = castToHTMLImageElement (_element_raw imgEl)
 
   natSize <- performEvent $ ffor (domEvent Load imgEl) $ \() -> do
     (,) <$> getNaturalWidth htmlImg <*> getNaturalHeight htmlImg
 
-  canv <- fst <$> el' "canvas" (return ())
+  -- canv <- fst <$> el' "canvas" (return ())
   let htmlCanv = castToHTMLCanvasElement (_element_raw canv)
 
   performEvent_ $ ffor natSize $ \(w,h) -> liftIO $ do
-    -- print "DRAW"
-    GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
-    GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
+    print ("DRAW" :: T.Text)
+    -- GHCJS.DOM.HTMLCanvasElement.setWidth  htmlCanv w
+    -- GHCJS.DOM.HTMLCanvasElement.setHeight htmlCanv h
 #ifdef ghcjs_HOST_OS
     ctx <- fromJSValUnchecked =<< getContext htmlCanv ("2d" :: String)
 #else
     ctx <- undefined -- TODO - when webkitgtk supports getting 2d context
 #endif
     drawImage ctx (Just htmlImg) 0 0
+  return (Nothing <$ natSize)
 
 -------------------------------------------------------------------------------
 #ifndef ghcjs_HOST_OS

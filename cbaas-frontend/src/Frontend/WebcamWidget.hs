@@ -62,7 +62,7 @@ webcamWidget doc extraVideoAttrs = mdo
     Just win <- currentWindow
     Just nav <- getNavigator win
     uAgent   <- getUserAgent nav
-    let htmlVid  = castToHTMLVideoElement (_el_element vid)
+    let htmlVid  = castToHTMLVideoElement (_element_raw vid)
     dict <- Dictionary <$> toJSVal_aeson (A.object [T.pack "video" A..= ("true" :: String)])
     if "Chrome" `JS.isInfixOf` uAgent
               then getUserMedia nav (Just dict) >>= \s -> createObjectURLStream' (Just s)

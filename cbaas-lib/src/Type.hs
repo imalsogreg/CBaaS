@@ -35,6 +35,7 @@ import           Web.HttpApiData
 data Type = TDouble
           | TComplex
           | TText
+          | TLabelProbs
           | TModelImage
           | TList
           | TVec
@@ -100,7 +101,7 @@ tyArrow = do
  
 tyLit :: P.Parser Type 
 tyLit = let aux t = P.try (P.string (drop 1 $ show t) >> return t) 
-        in  L.foldl1' (<|>) $ map aux [TDouble, TComplex, TText] 
+        in  L.foldl1' (<|>) $ map aux [TDouble, TComplex, TText, TLabelProbs] 
  
 ty1 :: P.Parser Type 
 ty1 = TyApp <$> tyCon1 <*> ty 

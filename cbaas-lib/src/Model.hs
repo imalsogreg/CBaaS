@@ -134,6 +134,7 @@ data Val = VDouble Double
          | VComplex PrimComplex
          | VText Text
          | VImage ModelImage
+         | VLabelProbs [(Text, Double)]
          -- TODO: I'm having trouble getting the recursive values into groundhog
          | VList   [Val]
          | VProbabilityDistribution [(Val,Double)]
