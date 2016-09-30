@@ -73,7 +73,7 @@ class Listener:
             respUrl = self._httpHost + '/api1/returnfun'
 
             respParams = { 'worker-id': self._workerID,
-                           'job-id':    msg['contents']}
+                           'job-id':    msg['contents'][0]}
 
             respHeaders = {'Content-Type': 'application/json'}
 
@@ -86,6 +86,7 @@ class Listener:
             print "ABOUT TO ENCODE"
             cbaas_r = _encode_cbaas_value(r, retTypeOfType(ty))
             print "FINISHED ENCODE"
+            print cbaas_r
             msg_r = {'tag':'WorkerFinished',
                      'contents':[
                          msg['contents'][0],
@@ -97,7 +98,10 @@ class Listener:
             resp = requests.post(respUrl, params=respParams,
                                  json=job_result, headers=respHeaders)
             print "SENT"
-            show_resp(resp)
+            if resp.status_code != requests.codes.ok:
+              show_resp(resp)
+              print resp.text
+            
 
         else:
             try:
@@ -178,6 +182,9 @@ def _encode_cbaas_value(v,ty):
     elif (t == type((1+1j))):
         return {'tag':'VPrimComplex',
                 'contents':{'real':v.real,'imag':v.imag}}
+    elif (ty == 'TLabelProbs'):
+        print v
+        return {'tag':'VLabelProbs', 'contents':v}
     elif (t == type('A string') or t == type(u'A unicode string')):
         return {'tag':'VText', 'contents':v}
     elif (ty == 'TModelImage'):

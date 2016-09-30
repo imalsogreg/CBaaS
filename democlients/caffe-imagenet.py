@@ -1,5 +1,6 @@
 import numpy as np
 import cbaas
+import string
 import os
 import matplotlib.pyplot as plt
 from base64 import b64encode
@@ -33,7 +34,7 @@ net = caffe.Net(caffe_root + 'models/bvlc_reference_caffenet/deploy.prototxt',
 transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
 transformer.set_transpose('data', (2,0,1))
 transformer.set_mean('data', np.load(caffe_root + 'python/caffe/imagenet/ilsvrc_2012_mean.npy').mean(1).mean(1)) # mean pixel
-transformer.set_raw_scale('data', 255)  # the reference model operates on images in [0,255] range instead of [0,1]
+transformer.set_raw_scale('data', 1)  # the reference model operates on images in [0,255] range instead of [0,1]
 transformer.set_channel_swap('data', (2,1,0))  # the reference model has channels in BGR order instead of RGB
 
 imagenet_labels_filename = caffe_root + 'data/ilsvrc12/synset_words.txt'
@@ -43,7 +44,10 @@ except:
   raise Exception("Couldn't load image labels")
 
 def do_work(npimage):
+  if npimage.shape[2] == 4:
+    npimage = npimage[:,:,0:3]
   print npimage
+  print npimage.shape
   # set net to batch size of 50
   net.blobs['data'].reshape(50,3,227,227)
 
@@ -53,17 +57,12 @@ def do_work(npimage):
 
   out = net.forward()
   top_k = net.blobs['prob'].data[0].flatten().argsort()[-1:-6:-1]
-  r = labels[top_k]
-  print r
-  return str(r)
+  ps = net.blobs['prob'].data[0].flatten()[top_k]
+  r = map( lambda x: string.join(x.split()[1:]), labels[top_k] )
+  # return str(np.vstack((r,ls)).T.tolist())
+  return zip(r,ps.tolist())
 
 
 if __name__ == "__main__":
-  print "Main"
-  f = open('/Users/greghale/cat.jpg','rb')
-  b = f.read()
-  v = {'tag':'VImage','contents':b64encode(b)}
-  fn = cbaas.package_image_binary(b)
-  print fn
-  l = cbaas.Listener(domain='greghale.io', on_job=do_work, function_name="label", type="TModelImage -> TText")
+  l = cbaas.Listener(domain='greghale.io', on_job=do_work, function_name="labelb", type="TModelImage -> TLabelProbs")
   print "Finished (why?)"
