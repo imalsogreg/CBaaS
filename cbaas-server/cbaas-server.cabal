@@ -138,7 +138,6 @@ test-suite spec
                  cbaas-server,
                  generics-sop,
                  hspec >= 2.2 && < 2.3, 
-                 hspec-snap >= 1.0 && < 1.1,
                  JuicyPixels,
                  QuickCheck >= 2.8 && < 2.9,
                  text,

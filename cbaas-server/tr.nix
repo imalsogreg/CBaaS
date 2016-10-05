@@ -18,7 +18,6 @@ reflex-platform.ghc.override {
      websockets-snap = (self.callPackage (reflex-platform.cabal2nixResult ../deps/websockets-snap) {});
 
      snaplet-postgresql-simple = (self.callPackage (reflex-platform.cabal2nixResult ../deps/snaplet-postgresql-simple) {});
-     hspec-snap  = (self.callPackage (reflex-platform.cabal2nixResult ../deps/servant-snap/deps/hspec-snap) {});
 
      # Until reflex-platform is on a nixpkgs with snap1.0
      snap                = dontCheck (self.callPackage (cabal2nixResult ../deps/snap) {});
