@@ -1,0 +1,69 @@
+name:                reflex-dom-semui
+version:             0.1
+license:             BSD3
+synopsis:            A reflex-dom API for semantic-ui components
+author:              Doug Beardsley
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  include/foreign-compat.h
+
+library
+  hs-source-dirs: src
+  include-dirs: include
+  js-sources:
+    -- Order is important: jquery is used by semantic but must come after.
+    lib/semantic.min.js,
+    lib/jquery.min.js
+
+  exposed-modules:
+    Reflex.Dom.SemanticUI
+    Reflex.Dom.SemanticUI.Button
+    Reflex.Dom.SemanticUI.Common
+    Reflex.Dom.SemanticUI.Dropdown
+    Reflex.Dom.SemanticUI.Icon
+    Reflex.Dom.SemanticUI.Input
+
+  other-modules:
+    GHCJS.Compat
+
+  build-depends:
+      base
+    , containers
+    , data-default
+    , ghcjs-dom
+    , mtl
+    , reflex     >= 0.5 && < 0.6
+    , reflex-dom >= 0.4 && < 0.5
+    , text
+
+  if impl(ghcjs)
+    hs-source-dirs: src-ghcjs
+    build-depends: ghcjs-base
+  else
+    hs-source-dirs: src-ghc
+
+  ghc-options: -Wall -fno-warn-unused-do-bind -fno-warn-orphans
+  cpp-options: -D_GHCJS_ -DGHCJS_GC_INTERVAL=60000
+
+  default-language:    Haskell2010
+  default-extensions:
+    CPP
+
+test-suite example
+  type:              exitcode-stdio-1.0
+  main-is:           Main.hs
+  hs-source-dirs:    example
+  default-language:  Haskell2010
+  default-extensions:
+    CPP
+
+  build-depends:
+      base
+    , containers
+    , dependent-sum
+    , mtl
+    , reflex            >= 0.5 && < 0.6
+    , reflex-dom        >= 0.4 && < 0.5
+    , reflex-dom-semui
+    , text
