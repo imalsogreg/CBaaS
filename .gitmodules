@@ -37,6 +37,4 @@
 [submodule "deps/glob"]
 	path = deps/glob
 	url = https://github.com/Deewiant/glob
-[submodule "deps/reflex-dom-semui"]
-	path = deps/reflex-dom-semui
-	url = https://github.com/reflex-frp/reflex-dom-semui
+
