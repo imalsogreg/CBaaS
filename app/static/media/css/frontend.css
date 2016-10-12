@@ -1,7 +1,17 @@
 .non-menu-content {
   margin: 0 auto;
+  margin-top: 75px;
   width: 90%;
   height: 100%;
+}
+
+.ui.search.selection.dropdown{
+    width: 300px;
+}
+
+.function-menu-item{
+    display: flex;
+    justify-content: space-between;
 }
 
 .expression {
