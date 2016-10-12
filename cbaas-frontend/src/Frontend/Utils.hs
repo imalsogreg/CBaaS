@@ -7,6 +7,7 @@
 
 module Frontend.Utils where
 
+import Control.Lens ((<&>))
 import Control.Monad (liftM2)
 import Control.Monad.Fix (MonadFix)
 import Data.Bool
@@ -61,10 +62,10 @@ editableWidget isEditor w redraw = mdo
              -> Dynamic t ActionState -- ^ Current editing state
              -> m (Event t ())        -- ^ Return Click events
       auxBtn (Right glyph) drawPredicate editing = do
-        btnAttrs <- forDyn editing $ \s ->
-          "class" =: ("editable-state glyphicon glyphicon-" <> glyph) <>
-          "aria-hidden" =: "true" <>
-          (bool ("display" =: "none") mempty (drawPredicate s))
+        let btnAttrs = editing <&> \s ->
+              "class" =: ("editable-state glyphicon glyphicon-" <> glyph) <>
+              "aria-hidden" =: "true" <>
+              (bool ("display" =: "none") mempty (drawPredicate s))
         btn <- fst <$> elDynAttr' "span" btnAttrs (return ())
         return (gate (fmap drawPredicate (current editing)) (domEvent Click btn))
       sometimesButton (Left imgsrc) drawPredicate editing = do

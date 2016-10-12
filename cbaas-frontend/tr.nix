@@ -18,5 +18,7 @@ reflex-platform.ghcjs.override {
      servant-js        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-js) {  });
      servant-foreign        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-foreign) {  });
      servant-docs        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-docs) {  });
+     # reflex-dom-semui    = dontCheck (self.callPackage (cabal2nixResult ../deps/reflex-dom-semui){});
+     reflex-dom-semui    = dontCheck (self.callPackage (cabal2nixResult ../../reflex-dom-semui){});
   };
 }

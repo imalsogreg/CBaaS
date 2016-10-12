@@ -2,7 +2,6 @@
 {-# language GADTs #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language RankNTypes #-}
 {-# language RecursiveDo #-}
 {-# language LambdaCase  #-}
 {-# language RankNTypes  #-}
@@ -39,6 +38,7 @@ import GHCJS.DOM.Types (Document)
 import Reflex
 import Reflex.Dom
 import Reflex.Dom.WebSocket
+import Reflex.Dom.SemanticUI.Dropdown
 import Text.PrettyPrint.HughesPJClass (prettyShow)
 import Message
 import Model
@@ -65,7 +65,11 @@ import Frontend.ImageWidget
 -- data FunctionWidget t = FunctionWidget
 --   { _functionWidget_profile :: Dynamic t WorkerProfile }
 
-functionListingItem :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m) => T.Text -> Dynamic t Type -> m (Event t T.Text) -- FunctionWidget t -> m ()
+functionListingItem
+  :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m)
+  => T.Text -- ^ Function name
+  -> Dynamic t Type -- ^ Function type
+  -> m (Event t T.Text)
 functionListingItem k t = do
   item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
     elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
@@ -79,15 +83,29 @@ functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpa
                 --       FunctionInfo might list tags,
                 --       usage history, nWorkers implementing, etc
                 -> m (Event t T.Text)
-functionListing' funs = do
- elAttr "div" ("style" =: "min-width: 300px;") $ do
+functionListing' funs =
+ elAttr "div" ("style" =: "min-width: 300px;") $
   divClass "ui fluid search selection dropdown" $ do
     elAttr "input" ("type" =: "hidden" <> "name" =: "function-search") blank
     elAttr "i" ("class" =: "dropdown icon") blank
     divClass "default text" $ text "Remote function..."
     menu :: Dynamic t (Map.Map T.Text (Event t T.Text)) <- divClass "menu" $
-      listWithKey funs (functionListingItem)
+      listWithKey funs functionListingItem
     return $ switchPromptlyDyn $ leftmost . Map.elems <$> menu
+
+functionListing'' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m, MonadWidget t m)
+                 => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
+                 -> m (Event t T.Text)
+functionListing'' funs = do
+  s <- semUiDropdownWithItems "function-listing-dropdown" [DOFFluid, DOFSearch, DOFSelection] ""
+    ((\fns -> Map.mapWithKey (\n ty -> functionListingItem'' n ty) fns) <$> funs) mempty
+  return $ updated s
+    -- ((\fns -> Map.mapWithKey (fns) (\n ty -> functionListingItem'' n ty)) <$> funs) mempty
+
+functionListingItem'' n ty = DropdownItemConfig n $ do
+  text n
+  elAttr "span" ("class" =: "item")
+    (text . T.pack . prettyShow $ ty)
 
 ------------------------------------------------------------------------------
 -- | A list of functions meant to update with typing in the search box
@@ -100,8 +118,8 @@ functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpac
                 -> m (Event t T.Text)
 functionListing functions sel = mdo
   searchbox <- value <$> elClass "div" "search-box" (textInput def)
-  funPredicate :: Dynamic t (T.Text -> Type -> Bool) <- mapDyn funListPredicate searchbox
-  okFuns <- combineDyn (\p m -> Map.filterWithKey p m) funPredicate functions
+  let funPredicate :: Dynamic t (T.Text -> Type -> Bool) = funListPredicate <$> searchbox
+      okFuns = zipDynWith (\p m -> Map.filterWithKey p m) funPredicate functions
 
   listing <- selectViewListWithKey_ curSelect okFuns $ \k v b -> do
     let divAttrs = ffor b $ \case
@@ -184,12 +202,13 @@ functionPage doc = mdo
         _                         -> Nothing
 
   workers :: Dynamic t WorkerProfileMap <- foldDyn ($) (EntityMap mempty) (leftmost [workersInit, workersModify])
-  nWorkers :: Dynamic t Int <- mapDyn (F.length . unEntityMap) workers
+  let nWorkers :: Dynamic t Int = (F.length . unEntityMap) <$> workers
 
   let env  :: Dynamic t (Map.Map T.Text (Expr Type)) = ffor workers $ \(EntityMap wm) -> Map.fromList . fmap remoteCallToVal $ Map.toList wm
       envWithWidgets :: Dynamic t (Map.Map T.Text (Expr Type)) = zipDynWith (<>) env inputWidgets
       dEnv = ffor (leftmost [updated env, tagPromptlyDyn env pb]) $ \e -> Map.map Just e
 
+  -- reflex-dom-semui: menu, menu items?
   listingClicks <- divClass "ui menu" $ do
     elClass "a" "item" $ text "cbaas"
     elClass "a" "item" $ text "Help"
@@ -420,6 +439,4 @@ runPlotly = undefined
 toJSVal_aeson = undefined
 runPlotlyLayout = undefined
 runPlotlyLayoutOptions = undefined
-instance IsXhrPayload String where
-  xmlHttpRequestSend = undefined
 #endif

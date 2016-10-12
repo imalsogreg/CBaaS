@@ -34,12 +34,14 @@ library
                      , exception-transformers
                      , ghcjs-dom
                      , groundhog-th
+                     , lens
                      , JuicyPixels
                      , mtl
                      , pretty
                      , ref-tf
                      , reflex
                      , reflex-dom
+                     , reflex-dom-semui
                      , text
                      , time
                      , transformers
