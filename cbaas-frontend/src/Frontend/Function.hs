@@ -65,33 +65,33 @@ import Frontend.ImageWidget
 -- data FunctionWidget t = FunctionWidget
 --   { _functionWidget_profile :: Dynamic t WorkerProfile }
 
-functionListingItem
-  :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m)
-  => T.Text -- ^ Function name
-  -> Dynamic t Type -- ^ Function type
-  -> m (Event t T.Text)
-functionListingItem k t = do
-  item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
-    elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
-    text k
-  return $ (k <> " #1") <$ domEvent Click item
+-- functionListingItem
+--   :: (DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, PostBuild t m)
+--   => T.Text -- ^ Function name
+--   -> Dynamic t Type -- ^ Function type
+--   -> m (Event t T.Text)
+-- functionListingItem k t = do
+--   item <- fmap fst $ elAttr' "div" ("class" =: "item" <> "data-value" =: k)$ do
+--     elAttr "span" ("class" =: "description") $ dynText $ T.pack . prettyShow <$> t
+--     text k
+--   return $ (k <> " #1") <$ domEvent Click item
 
 
-functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
-                => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
-                -- TODO: change Function to FunctionInfo
-                --       FunctionInfo might list tags,
-                --       usage history, nWorkers implementing, etc
-                -> m (Event t T.Text)
-functionListing' funs =
- elAttr "div" ("style" =: "min-width: 300px;") $
-  divClass "ui fluid search selection dropdown" $ do
-    elAttr "input" ("type" =: "hidden" <> "name" =: "function-search") blank
-    elAttr "i" ("class" =: "dropdown icon") blank
-    divClass "default text" $ text "Remote function..."
-    menu :: Dynamic t (Map.Map T.Text (Event t T.Text)) <- divClass "menu" $
-      listWithKey funs functionListingItem
-    return $ switchPromptlyDyn $ leftmost . Map.elems <$> menu
+-- functionListing' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
+--                 => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
+--                 -- TODO: change Function to FunctionInfo
+--                 --       FunctionInfo might list tags,
+--                 --       usage history, nWorkers implementing, etc
+--                 -> m (Event t T.Text)
+-- functionListing' funs =
+--  elAttr "div" ("style" =: "min-width: 300px;") $
+--   divClass "ui fluid search selection dropdown" $ do
+--     elAttr "input" ("type" =: "hidden" <> "name" =: "function-search") blank
+--     elAttr "i" ("class" =: "dropdown icon") blank
+--     divClass "default text" $ text "Remote function..."
+--     menu :: Dynamic t (Map.Map T.Text (Event t T.Text)) <- divClass "menu" $
+--       listWithKey funs functionListingItem
+--     return $ switchPromptlyDyn $ leftmost . Map.elems <$> menu
 
 functionListing'' :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m, MonadWidget t m)
                  => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
@@ -107,30 +107,30 @@ functionListingItem'' n ty = DropdownItemConfig n $ do
   elAttr "span" ("class" =: "item")
     (text . T.pack . prettyShow $ ty)
 
-------------------------------------------------------------------------------
--- | A list of functions meant to update with typing in the search box
-functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
-                => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
-                -> Dynamic t T.Text
-                -- TODO: change Function to FunctionInfo
-                --       FunctionInfo might list tags,
-                --       usage history, nWorkers implementing, etc
-                -> m (Event t T.Text)
-functionListing functions sel = mdo
-  searchbox <- value <$> elClass "div" "search-box" (textInput def)
-  let funPredicate :: Dynamic t (T.Text -> Type -> Bool) = funListPredicate <$> searchbox
-      okFuns = zipDynWith (\p m -> Map.filterWithKey p m) funPredicate functions
+-- ------------------------------------------------------------------------------
+-- -- | A list of functions meant to update with typing in the search box
+-- functionListing :: forall t m .(DomBuilder t m, DomBuilderSpace m ~ GhcjsDomSpace, MonadFix m,MonadHold t m, PostBuild t m)
+--                 => Dynamic t (Map.Map T.Text Type) -- WorkerProfileMap -- (Map.Map T.Text Function)
+--                 -> Dynamic t T.Text
+--                 -- TODO: change Function to FunctionInfo
+--                 --       FunctionInfo might list tags,
+--                 --       usage history, nWorkers implementing, etc
+--                 -> m (Event t T.Text)
+-- functionListing functions sel = mdo
+--   searchbox <- value <$> elClass "div" "search-box" (textInput def)
+--   let funPredicate :: Dynamic t (T.Text -> Type -> Bool) = funListPredicate <$> searchbox
+--       okFuns = zipDynWith (\p m -> Map.filterWithKey p m) funPredicate functions
 
-  listing <- selectViewListWithKey_ curSelect okFuns $ \k v b -> do
-    let divAttrs = ffor b $ \case
-          False -> "class" =: "function-entry"
-          True  -> "class" =: "function-entry selected" <>
-                   "style" =: "background-color:gray" -- TODO only use class & css file
-    (e,_) <- elDynAttr' "div" divAttrs (functionListingItem k v)
-    return (k <$ domEvent Click e)
+--   listing <- selectViewListWithKey_ curSelect okFuns $ \k v b -> do
+--     let divAttrs = ffor b $ \case
+--           False -> "class" =: "function-entry"
+--           True  -> "class" =: "function-entry selected" <>
+--                    "style" =: "background-color:gray" -- TODO only use class & css file
+--     (e,_) <- elDynAttr' "div" divAttrs (functionListingItem k v)
+--     return (k <$ domEvent Click e)
 
-  curSelect :: Dynamic t T.Text <- holdDyn T.empty listing
-  return $ updated curSelect
+--   curSelect :: Dynamic t T.Text <- holdDyn T.empty listing
+--   return $ updated curSelect
 
  -- TODO: more customizations
 funListPredicate :: T.Text -> T.Text -> Type -> Bool
