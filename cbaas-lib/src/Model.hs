@@ -126,9 +126,6 @@ instance A.ToJSON Prim2
 instance A.FromJSON Prim2
 instance NFData Prim2
 
-instance A.ToJSON Type
-
-instance A.FromJSON Type
 
 data Val = VDouble Double
          | VComplex PrimComplex

@@ -14,5 +14,7 @@ reflex-platform.ghc.override {
      groundhog = dontCheck (self.callPackage (cabal2nixResult ../../throwaway/groundhog/groundhog) {});
      groundhog-th = dontCheck (self.callPackage (cabal2nixResult ../../throwaway/groundhog/groundhog-th) {});
      groundhog-postgresql = dontCheck (self.callPackage (cabal2nixResult ../../throwaway/groundhog/groundhog-postgresql) {});
+     groundhog-ghcjs = null;
+     http-api-data = dontCheck (self.callPackage (cabal2nixResult ../deps/http-api-data) {});
   };
 }
