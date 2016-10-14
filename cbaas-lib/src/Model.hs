@@ -18,14 +18,19 @@ module Model (
   FromVal(..),
   Expr(..),
   ModelImage(..),
-  Prim1(..),
-  Prim2(..),
+  Prim(..),
   Type(..),
   WorkerProfile(..),
   WorkerProfileMap,
   WorkerName(..),
   WorkerProfileId,
-  module Type
+  module Type,
+
+  findVar,
+  vars,
+  -- * Test values
+  eSuccTy,
+  eSucc
 ) where
 
 import Codec.Picture
@@ -49,7 +54,7 @@ import qualified Data.Vector as V
 import Database.Groundhog
 #endif
 import Database.Groundhog.TH hiding (defaultCodegenConfig)
-import Generics.SOP
+import Generics.SOP hiding (fn)
 import GHC.Generics
 import GHC.TypeLits
 import Text.Read
@@ -90,9 +95,24 @@ data Expr a = ELit    a Val
             | ELambda a Text  (Expr a)
             | ERemote a (WorkerProfileId, WorkerProfile, Text)
             | EApp    a (Expr a)  (Expr a)
-            | EPrim1  a Prim1 (Expr a)
-            | EPrim2  a Prim2 (Expr a) (Expr a)
+            | EPrim  a  Prim -- TODO: Merge this with Val?
             deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
+
+vars :: Expr a -> [Expr a]
+vars (ELit _ _) = []
+vars v@(EVar _ _) = [v]
+vars (ELambda _ _ b) = vars b
+vars (ERemote _ _) = []
+vars (EApp _ f a) = vars f ++ vars a
+vars (EPrim _ _) = []
+
+findVar :: T.Text -> Expr a -> Maybe (Expr a)
+findVar n e = safeHead . Prelude.filter aux $ vars e
+  where aux (EVar _ n') = n == n'
+        aux _           = False
+        safeHead (x:_) = Just x
+        safeHead _     = Nothing
+  
 
 instance Functor Expr where
   fmap f (ELit a v)  = ELit (f a) v
@@ -100,8 +120,7 @@ instance Functor Expr where
   fmap f (ELambda a n b) = ELambda (f a) n (fmap f b)
   fmap f (ERemote a r) = ERemote (f a) r
   fmap f (EApp a eA eB) = EApp (f a) (fmap f eA) (fmap f eB)
-  fmap f (EPrim1 a p e) = EPrim1 (f a) p (fmap f e)
-  fmap f (EPrim2 a p eA eB) = EPrim2 (f a) p (fmap f eA) (fmap f eB)
+  fmap f (EPrim a p) = EPrim (f a) p
 
 instance A.ToJSON a => A.ToJSON (Expr a)
 instance A.FromJSON a => A.FromJSON (Expr a)
@@ -112,19 +131,12 @@ instance NFData a => NFData (Expr a)
 instance NFData Type
 
 
-data Prim1 = P1Negate | P1Not
+data Prim = P1Negate | P1Not | P1Succ | P2And | P2Or | P2Sum | P2Map | P2Prod
   deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
 
-instance A.ToJSON Prim1
-instance A.FromJSON Prim1
-instance NFData Prim1
-
-data Prim2 = P2And | P2Or | P2Sum | P2Map | P2Prod
-  deriving (Eq, Ord, Show, Read, GHC.Generics.Generic)
-
-instance A.ToJSON Prim2
-instance A.FromJSON Prim2
-instance NFData Prim2
+instance A.ToJSON Prim
+instance A.FromJSON Prim
+instance NFData Prim
 
 
 data Val = VDouble Double
@@ -307,3 +319,11 @@ mkPersist ghCodeGen [groundhog|
   - entity: WorkerProfile
 |]
 #endif
+
+-- * Test data
+
+eSuccTy :: Type
+eSuccTy = tDouble `fn` tDouble
+
+eSucc :: Expr Type
+eSucc = ELambda eSuccTy "x" (EApp tDouble (EPrim eSuccTy P1Succ) (EVar tDouble "x"))

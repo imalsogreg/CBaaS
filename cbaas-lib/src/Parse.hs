@@ -31,7 +31,7 @@ app = do
   return $ L.foldl' (EApp ()) t1 tN
 
 tokP = P.makeTokenParser P.emptyDef
-opTable = [ [prefix "-" (EPrim1 () P1Negate)
+opTable = [ [prefix "-" (EApp () (EPrim () P1Negate))
 --            ,
              -- prefix "log10" (UPrim1 PLog10),
              -- prefix "log" (UPrim1 PLogE),
@@ -40,10 +40,10 @@ opTable = [ [prefix "-" (EPrim1 () P1Negate)
              -- postfix "dB" (UPrim1 PToDb)]
 --          , [binary "^" (UPrim2 PPow) AssocLeft
             ]
-          , [binary "*" (EPrim2 () P2Prod) P.AssocLeft
+          , [binary "*" (\x y -> EApp () (EApp () (EPrim () P2Prod) x) y) P.AssocLeft
 --            , binary "/" (UPrim2 PDiv) AssocLeft
             ]
-          , [binary "+" (EPrim2 () P2Sum) P.AssocLeft
+          , [binary "+" (\x y -> EApp () (EApp () (EPrim () P2Sum) x) y) P.AssocLeft
 --            , binary "-" (UPrim2 PDiff) AssocLeft
 --            , binary "->" (UPrim2 PRange) AssocLeft
             ]

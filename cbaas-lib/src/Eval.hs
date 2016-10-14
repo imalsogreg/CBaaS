@@ -20,8 +20,7 @@ countRemotes env e = case e of
   ELambda _ _ b  -> countRemotes env b
   ERemote _ _    -> 1
   EApp _ f a -> countRemotes env f + countRemotes env a
-  EPrim1 _ _ e -> countRemotes env e
-  EPrim2 _ _ a b -> countRemotes env a + countRemotes env b
+  EPrim _ _ -> 0
 
 -- evalStepSimple :: MonadIO m
 --                => ((WorkerProfileId, WorkerProfile, T.Text) -> m (Either T.Text (Expr a)))

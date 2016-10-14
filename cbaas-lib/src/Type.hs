@@ -7,12 +7,7 @@
 {-# language OverloadedStrings   #-}
 {-# language ScopedTypeVariables #-}
 
-module Type (
- Type(..),
- TyCon(..),
- prettyType,
- parseType
- ) where
+module Type where
 
 import           Control.Applicative
 import           Data.Bifunctor (first)
@@ -45,8 +40,9 @@ data Type = TCon TyCon K.Kind
           | TApp Type Type
             deriving (Eq, Ord, Show, Read, Generic, A.FromJSON, A.ToJSON)
 
-data TyCon = TCDouble
+data TyCon = TCBool
            | TCComplex
+           | TCDouble
            | TCText
            | TCLabelProbs
            | TCImage
@@ -57,6 +53,7 @@ data TyCon = TCDouble
            | TCPair
            | TCOther T.Text
   deriving (Eq, Ord, Show, Read, Generic, A.ToJSON, A.FromJSON, NFData)
+
 
 conKind :: TyCon -> K.Kind
 conKind TCFun  = K.TyFun K.Type (K.TyFun K.Type K.Type)
@@ -78,13 +75,14 @@ mkPersist ghCodeGen [groundhog|
 pText :: T.Text -> PP.Doc
 pText = PP.text . T.unpack
 
-tUnit   = (TCon TCUnit K.Type)
-tText   = (TCon TCText K.Type)
-tImage  = (TCon TCImage K.Type)
-tDouble = (TCon TCDouble K.Type)
-tList   = (TCon TCList (K.TyFun K.Type K.Type))
-tArrow  = (TCon TCFun (K.TyFun K.Type (K.TyFun K.Type K.Type)))
-tPair   = (TCon TCPair (K.TyFun K.Type (K.TyFun K.Type K.Type)))
+tBool   = TCon TCBool K.Type
+tUnit   = TCon TCUnit K.Type
+tText   = TCon TCText K.Type
+tImage  = TCon TCImage K.Type
+tDouble = TCon TCDouble K.Type
+tList   = TCon TCList (K.TyFun K.Type K.Type)
+tArrow  = TCon TCFun (K.TyFun K.Type (K.TyFun K.Type K.Type))
+tPair   = TCon TCPair (K.TyFun K.Type (K.TyFun K.Type K.Type))
 
 infix 4 `fn`
 fn :: Type -> Type -> Type
@@ -154,6 +152,7 @@ pairTy = do
   ty1 <- ty
   P.spaces >> P.char ',' >> P.spaces
   ty2 <- ty
+  P.char ')'
   return $ pair ty1 ty2
 
 conTy :: P.Parser Type
@@ -182,5 +181,3 @@ instance FromHttpApiData (Type) where
       return $ tx `fn` tRet
     [x] -> note "No read in type" (readMaybe $ T.unpack x)
     _   -> Left "No parse for type"
-
-
