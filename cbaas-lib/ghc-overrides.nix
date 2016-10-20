@@ -8,7 +8,11 @@ in
 reflex-platform.ghc.override {
   overrides = self: super: { 
      # inherit (nixpkgs.haskellPackages) lens clock lens-aeson wreq HUnit;
-     servant-snap        = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap) {});
+     servant-snap         = dontCheck (self.callPackage (cabal2nixResult ../deps/servant-snap) {});
+     servant              = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant) {});
+     servant-docs         = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-docs) {});
+     servant-foreign      = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-foreign) {});
+     servant-js           = dontCheck (self.callPackage (cabal2nixResult ../deps/servant/servant-js) {});
      #groundhog-th        = dontCheck (self.callPackage (cabal2nixResult ../deps/groundhog/groundhog-th) {}); 
      #roundhog-postgresql = dontCheck (self.callPackage (cabal2nixResult ../deps/groundhog/groundhog-postgresql) {});
      groundhog = dontCheck (self.callPackage (cabal2nixResult ../../throwaway/groundhog/groundhog) {});
