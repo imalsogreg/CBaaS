@@ -3,15 +3,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module TypeCheck (
-    typeCheck
-  , dumbCheck
-  , dumbCheck'
-  , mgu
-  , merge
-  , (@@)
-  , tcRun -- temporary
-  ) where
+-- module TypeCheck (
+--     typeInfer
+--   , dumbCheck
+--   , dumbCheck'
+--   , mgu
+--   , merge
+--   , (@@)
+--   , tcRun -- temporary
+--   ) where
+module TypeCheck where
 
 import Control.Monad ((>=>),liftM2)
 import qualified Data.List as L
@@ -25,9 +26,14 @@ import qualified Kind as K
 import Type
 import Parse -- temporary, for an error message
 import Pretty -- temporary, for an error message
+import Debug.Trace
 
 newtype Subst = Subst { unSubst :: [(TyVar, Type)] }
   deriving (Eq, Show)
+
+showSubst :: Subst -> T.Text
+showSubst (Subst xs) =
+  T.unlines $ map (\((n,_),t) -> n <> ": " <> T.pack (show $ prettyType t)) xs
 
 type TyVar = (T.Text,Kind)
 
@@ -73,6 +79,17 @@ instance Types (Expr Type) where
   tv (ELambda t _ b) = tv t `L.union` tv b
   tv (ERemote t _) = tv t
   tv (EApp t f a) = tv t `L.union` tv f `L.union` tv a
+  tv (EPrim _ _ ) = []
+
+exprType :: Expr Type -> Type
+exprType e = case e of
+  ELit t _ -> t
+  EVar t _ -> t
+  ELambda t _ _ -> t
+  ERemote t _ -> t
+  EApp t _ _ -> t
+  EPrim t _ -> t
+
   
 
 infixl 4 =:
@@ -128,58 +145,81 @@ match (TCon tc1 k1) (TCon tc2 k2)
   | otherwise  = Left "Type mismatch"
 match _ _ = Left "Type mismatch"
 
-insertWithFreshTName :: T.Text -> Type -> Subst -> (T.Text, Subst)
-insertWithFreshTName n t s@(Subst subs) =
-  let n' = findFreshTName s
-  in (n', Subst (((findFreshTName s, K.Type),t) : subs))
+insertWithFreshTName :: T.Text -> Type -> Expr Type -> Subst -> (T.Text, Subst)
+insertWithFreshTName n t ex s@(Subst subs) =
+  let n' = findFreshTName ex s
+  in (n', Subst (((n', K.Type),t) : subs))
 
-findFreshTName :: Subst -> T.Text
-findFreshTName (Subst subs) =
+findFreshTName :: Expr Type -> Subst -> T.Text
+findFreshTName ex (Subst subs) =
   let allNames = Set.fromList [T.pack (l : show n) | l <- ['a'..'z'], n <- [0..10]]
-      oldNames = Set.fromList (map (fst.fst) subs)
+      oldNames = Set.fromList (map (fst.fst) subs ++ map fst (tv ex))
   in case Set.toList $ allNames `Set.difference` oldNames of
         (x:_) -> x
         _     -> error "Error - no more fresh names!"
 
   
------------------------------------------------------------------------
-typeCheck :: Subst -> Expr a -> Either T.Text (Type, Expr Type, Subst)
-typeCheck s (ELit a lit) = let t = litType lit
-                           in Right (t, ELit (litType lit) lit, s)
-typeCheck s (EVar _ n) = let t = (apply s (TVar n K.Type))
-                         in Right $ (t, EVar t n, s)
-typeCheck s (ELambda _ b e) =
-  let tRes = typeCheck s e
-  in case tRes of
-    Right (eType, eTyped, s'@(Subst subs)) -> case findVar b e of
-      Nothing ->
-        let t = TVar (findFreshTName s') K.Type `fn` eType
-        in return (t, ELambda t b eTyped, s')
-      Just (EVar t n) ->
-        let t = t `fn` eType
-        in case typeCheck (s @@ s') e of
-             Right (_, e', _) -> Right (t, ELambda t b e', s @@ s')
-             Left e -> Left e
-    Left e -> Left e
-typeCheck s (EApp _ f a) = do
-  (fTy, fTyped, fSubs) <- typeCheck s f
-  (aTy, aTyped, aSubs) <- typeCheck (s @@ fSubs) a
-  case fTy of
-    TApp (TApp (TCon TCFun _) fParam) fBody -> do
-      sUnify <- mgu aTy fBody
-      return (fBody, EApp fBody fTyped aTyped, sUnify @@ fSubs @@ aSubs)
-    _ -> Left "Tried to apply non-function to an argument"
-typeCheck s (EPrim _ p) = return (primType p, EPrim (primType p) p, s)
+dbg :: String -> Expr b -> Either T.Text (Expr Type, Subst) -> Either T.Text (Expr Type, Subst)
+dbg prefix exp a = trace (prefix <> ": " <> show (prettyExpr exp) <> " :: " <> typeString) a
+  where typeString = case a of
+                       Left e -> "<<Error: " <> T.unpack e <> ">>"
+                       Right (e,_) -> show (prettyType $ exprType e)
 
+-----------------------------------------------------------------------
+typeInfer :: Subst -> Expr a -> Either T.Text (Expr Type, Subst)
+
+typeInfer s l@(ELit a lit) = dbg "lit" l $ let t = litType lit
+                             in Right (apply s (ELit (litType lit) lit), s)
+
+typeInfer s v@(EVar _ n) = dbg "var" v $ let t = (apply s (TVar n K.Type))
+                                         in Right (apply s (EVar t n), s)
+
+typeInfer s l@(ELambda _ n body) = dbg "lam" l $
+  case trace "TC Body:" $ typeInfer s body of
+    Right (bodyTyped, bodySubs) -> case findVar n bodyTyped of
+      Nothing ->
+        let t = TVar (findFreshTName bodyTyped (s @@ bodySubs)) K.Type `fn` exprType bodyTyped
+        in trace "VAR NOT FOUND" $ return (ELambda t n bodyTyped, bodySubs)
+      Just (EVar varType n) ->
+        let t = trace "VAR FOUND" $ varType `fn` exprType bodyTyped
+            subs' = s @@ bodySubs
+        in  Right (apply subs' (ELambda t n bodyTyped), s @@ bodySubs)
+    Left err -> Left err
+
+typeInfer s e@(EApp _ f a) = dbg "app1" e $ do
+  (fTyped, fSubs) <- typeInfer s f
+  (aTyped, aSubs) <- typeInfer (s @@ fSubs) a
+  let aTy = exprType aTyped
+      fTy = exprType fTyped
+  let allSubs = s @@ fSubs @@ aSubs
+  case traceShow (prettyType fTy) $ traceShow (prettyType aTy) $ fTy of
+    TApp (TApp (TCon TCFun _) fParam) fBody -> do
+      sUnify <- mgu aTy fParam
+      let subs' = sUnify @@ fSubs @@ aSubs
+      return (apply subs' (EApp fBody fTyped aTyped), sUnify @@ fSubs @@ aSubs)
+    TVar varName _ -> let resTypeName = findFreshTName (EApp fTy fTyped aTyped) allSubs :: T.Text
+                          resType = TVar resTypeName K.Type :: Type
+                          funType = aTy `fn` resType :: Type
+                          subs'   = allSubs @@ ((varName, K.Type) =: funType)
+                      in  Right (apply subs' (EApp resType fTyped aTyped),
+                                 subs')
+    _ -> Left "Tried to apply non-function to an argument"
+
+typeInfer s pr@(EPrim _ p) = dbg "prim" pr $ return (EPrim (primType p) p, s)
 
 -----------------------------------------------------------------------
 -- Temporary helper function
 tcRun :: T.Text -> IO ()
 tcRun a = case parseExpr a of
   Left err   -> error . T.unpack $ "Parse error: " <> err
-  Right expr -> case typeCheck mempty expr of
+  Right expr -> case typeInfer mempty expr of
     Left err -> putStrLn $ T.unpack err
-    Right a  -> putStrLn "Success!" >> print a
+    Right (tyed,subs) ->
+      putStrLn . T.unpack . T.unlines $
+      ["" ,"Type:" ,T.pack (show $ prettyType $ exprType tyed)
+      ,"" ,"Expr:" , T.pack (show $ prettyExpr tyed)
+      ,"" ,"Subs:" , showSubst subs
+      ]
 
 
 
@@ -222,4 +262,3 @@ dumbCheck' env (EApp _ (EVar _ funcName) (EVar _ argName)) =
                                                 <> T.pack (show t)
     _                                        -> Left $ "No function " <> funcName <> " found."
 dumbCheck' _ _ = Left "dumbCheck only works on (EApp _ (ELambda _ _ _) y)"
-
