@@ -281,6 +281,8 @@ widgetInventory expr = case expr of
 
     ap@(EApp p a b) -> widgetInventory a <> widgetInventory b
 
+    l@(ELit _ _) -> mempty
+
     EPrim _ _ -> mempty
     -- ap@(EPrim1 p pr a) -> widgetInventory a
 
