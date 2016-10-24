@@ -158,7 +158,7 @@ findFreshTName ex (Subst subs) =
         (x:_) -> x
         _     -> error "Error - no more fresh names!"
 
-  
+
 dbg :: String -> Expr b -> Either T.Text (Expr Type, Subst) -> Either T.Text (Expr Type, Subst)
 dbg prefix exp a = trace (prefix <> ": " <> show (prettyExpr exp) <> " :: " <> typeString) a
   where typeString = case a of

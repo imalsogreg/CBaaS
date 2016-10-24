@@ -66,10 +66,11 @@ expression (ExpressionConfig textAttrs env0 dEnv workers setText valid) =
         env <- foldDyn applyMap env0 dEnv
 
         let expr  = parseExpr <$> exprText
-            typedExpr = fmap snd <$> zipDynWith (\env e -> e >>= (dumbCheck' env) ) env expr
+            -- typedExpr = fmap snd <$> zipDynWith (\env e -> e >>= (dumbCheck' env) )  env expr
+            typedExpr = fmap fst <$> zipDynWith (\env e -> e >>= typeInfer mempty) env expr
             goodExpr = isRight <$> typedExpr -- liftA2 (&&) (isRight <$> expr) (isRight <$> etype)
             internalAttrs = ffor goodExpr $ bool
               ("style" =: "box-shadow: 0px 0px 5px rgba(255,0,0,0.5);" <> "placeholder" =: "label #1")
               mempty
 
-    return $ Expression exprText typedExpr (domEvent Click btn)
+    return $ Expression exprText (typedExpr) (domEvent Click btn)
