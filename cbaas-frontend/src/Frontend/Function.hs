@@ -55,9 +55,12 @@ import GHCJS.Types (JSVal)
 import GHCJS.DOM.Location
 
 import Job
+import Type
 import Pretty
 import Frontend.Expression
 import Frontend.ImageWidget
+import Frontend.SimpleWidgets
+import Frontend.Utils
 
 
 ------------------------------------------------------------------------------
@@ -94,6 +97,7 @@ viewResults resultIds = do
   widgetHold blank $ ffor results $ \case
     Just (JobResult (VImage mi) _) -> displayImg' mi
     Just (JobResult (VText t) _ ) -> text t
+    Just (JobResult (VDouble d) _ ) -> text (tShow d)
     Just (JobResult (VLabelProbs ps) _ ) -> displayLabelProbs ps
     Nothing -> text "Nothing"
     _ -> text "Non-image result"
@@ -204,46 +208,53 @@ functionPage doc = mdo
 tShow :: Show a => a -> T.Text
 tShow = T.pack . show
 
-inputWidget :: forall t m.(PostBuild t m,
-                           DomBuilder t m,
-                           MonadIO m,
-                           MonadFix m,
-                           MonadIO (Performable m),
-                           TriggerEvent t m,
-                           PerformEvent t m,
-                           HasWebView m,
-                           MonadHold t m,
-                           HasWebView (Performable m),
-                           PerformEvent t (Performable m),
-                           DomBuilderSpace m ~ GhcjsDomSpace)
-            => Document
-            -> T.Text
-            -> Dynamic t Type
-            -> m (Dynamic t (Expr Type))
+inputWidget
+  :: forall t m.
+     (PostBuild t m,
+      DomBuilder t m,
+      MonadIO m,
+      MonadFix m,
+      MonadIO (Performable m),
+      TriggerEvent t m,
+      PerformEvent t m,
+      HasWebView m,
+      MonadHold t m,
+      HasWebView (Performable m),
+      PerformEvent t (Performable m),
+      DomBuilderSpace m ~ GhcjsDomSpace)
+  => Document
+  -> T.Text
+  -> Dynamic t Type
+  -> m (Dynamic t (Expr Type))
 inputWidget doc k dynType = do
   inp <- dyn (ffor dynType $ \case
-    TModelImage -> do
+    TCon TCImage knd -> do
       imWid <- imageInputWidget doc def
       text k
-      return $ ELit TModelImage . VImage . ModelImage <$> imageInputWidget_image imWid)
+      return $ ELit (TCon TCImage knd) . VImage . ModelImage <$> imageInputWidget_image imWid
+    TCon TCDouble knd -> do
+      dblwid <- doubleWidget def
+      text k
+      return $ ELit (TCon TCDouble knd) . VDouble <$> value dblwid
+    TCon TCText knd -> do
+      txtwid <- textWidget def
+      text k
+      return $ ELit (TCon TCDouble knd) . VText <$> value txtwid
+    )
   join <$> holdDyn (defVal <$> dynType) inp
 
 defVal :: Type -> Expr Type
 defVal t = ELit t v
   where v = case t of
-          TModelImage -> VImage . ModelImage $ defImg
-          TDouble -> VDouble 0
-          TText -> VText ""
-          TList -> VList []
+          TCon TCImage _ -> VImage . ModelImage $ defImg
+          TCon TCDouble _ -> VDouble 0
+          TCon TCText _ -> VText ""
+          -- TCon TCList -> VList []
 
 holdLastJust :: (Reflex t, PostBuild t m, MonadHold t m) => a -> Dynamic t (Maybe a) -> m (Dynamic t a)
 holdLastJust a0 dA = do
   pb <- getPostBuild
   holdDyn a0 $ fmapMaybe id $ leftmost [tagPromptlyDyn dA pb, updated dA]
-
-hush :: Either e a -> Maybe a
-hush (Right a) = Just a
-hush _         = Nothing
 
 type WMap = Map.Map WorkerProfileId WorkerProfile
 
@@ -266,9 +277,10 @@ widgetInventory expr = case expr of
 
     ap@(EApp p a b) -> widgetInventory a <> widgetInventory b
 
-    ap@(EPrim1 p pr a) -> widgetInventory a
+    EPrim _ _ -> mempty
+    -- ap@(EPrim1 p pr a) -> widgetInventory a
 
-    ap@(EPrim2 p pr a b) -> widgetInventory a <> widgetInventory b
+    -- ap@(EPrim2 p pr a b) -> widgetInventory a <> widgetInventory b
 
 resolveWidgetVars :: Map.Map T.Text (Expr Type)
                   -> Expr Type
@@ -287,9 +299,10 @@ resolveWidgetVars env expr = case expr of
 
     ap@(EApp p a b) -> liftA2 (EApp p) (resolveWidgetVars env a) (resolveWidgetVars env b)
 
-    ap@(EPrim1 p pr a) -> EPrim1 p pr <$> resolveWidgetVars env a
+    p@(EPrim _ _) -> Right p
+    -- ap@(EPrim1 p pr a) -> EPrim1 p pr <$> resolveWidgetVars env a
 
-    ap@(EPrim2 p pr a b) -> liftA2 (EPrim2 p pr) (resolveWidgetVars env a) (resolveWidgetVars env b)
+    -- ap@(EPrim2 p pr a b) -> liftA2 (EPrim2 p pr) (resolveWidgetVars env a) (resolveWidgetVars env b)
 
 dumbEval :: (DomBuilder t m,
               PostBuild t m,

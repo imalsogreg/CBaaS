@@ -75,3 +75,11 @@ editableWidget isEditor w redraw = mdo
   ea <- elClass "div" "editable-div" (widgetHold runEditing (runEditing <$ redraw))
   e :: Dynamic t ActionState <- joinDyn <$> mapDyn fst ea
   return (snd <$> ea, e, never)
+
+tshow :: Show a => a -> T.Text
+tshow = T.pack . show
+
+hush :: Either e a -> Maybe a
+hush (Right a) = Just a
+hush _ = Nothing
+

@@ -74,21 +74,23 @@ data ImageInputWidget t = ImageInputWidget
   , imageInputWidget_screenScaling :: Dynamic t Double
   }
 
-imageInputWidget :: forall t m.(PostBuild t m,
-                                DomBuilder t m,
-                                MonadIO m,
-                                MonadFix m,
-                                MonadIO (Performable m),
-                                TriggerEvent t m,
-                                PerformEvent t m,
-                                HasWebView m,
-                                MonadHold t m,
-                                HasWebView (Performable m),
-                                PerformEvent t (Performable m),
-                                DomBuilderSpace m ~ GhcjsDomSpace)
-                 => Document
-                 -> ImageInputWidgetConfig t
-                 -> m (ImageInputWidget t)
+imageInputWidget
+  :: forall t m.
+     (PostBuild t m,
+      DomBuilder t m,
+      MonadIO m,
+      MonadFix m,
+      MonadIO (Performable m),
+      TriggerEvent t m,
+      PerformEvent t m,
+      HasWebView m,
+      MonadHold t m,
+      HasWebView (Performable m),
+      PerformEvent t (Performable m),
+      DomBuilderSpace m ~ GhcjsDomSpace)
+  => Document
+  -> ImageInputWidgetConfig t
+  -> m (ImageInputWidget t)
 imageInputWidget doc (ImageInputWidgetConfig src0 dSrc (wid,hei)) = do
   canv <- elAttr "div" ("class" =: "image-input" <> "style" =: ("width: " <> tShow wid <> "px;" <> "height:" <> tShow hei <> "px;")) $ mdo
 
@@ -175,16 +177,16 @@ jsPack = undefined
 -- TODO implement for real
 iconButton :: (PostBuild t m,
                DomBuilder t m,
-                                MonadIO m,
-                                MonadFix m,
-                                MonadIO (Performable m),
-                                TriggerEvent t m,
-                                PerformEvent t m,
-                                HasWebView m,
-                                MonadHold t m,
-                                HasWebView (Performable m),
-                                PerformEvent t (Performable m),
-                                DomBuilderSpace m ~ GhcjsDomSpace) => T.Text -> Dynamic t (Map.Map T.Text T.Text) -> m (Event t ())
+               MonadIO m,
+               MonadFix m,
+               MonadIO (Performable m),
+               TriggerEvent t m,
+               PerformEvent t m,
+               HasWebView m,
+               MonadHold t m,
+               HasWebView (Performable m),
+               PerformEvent t (Performable m),
+               DomBuilderSpace m ~ GhcjsDomSpace) => T.Text -> Dynamic t (Map.Map T.Text T.Text) -> m (Event t ())
 iconButton iconName topAttrs = do
   (d,_) <- elDynAttr' "div" topAttrs $ elAttr "i" ("class" =: (iconName <> " icon")) blank
   return (domEvent Click d)

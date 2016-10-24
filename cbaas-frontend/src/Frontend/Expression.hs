@@ -18,7 +18,7 @@ import Reflex.Dom
 
 import Model
 import Parse
-import TypeCheck
+import TypeCheck hiding ((=:))
 import EntityID
 import WorkerProfile
 

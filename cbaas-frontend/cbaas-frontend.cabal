@@ -19,6 +19,7 @@ library
   exposed-modules: Frontend.Function     
                    Frontend.Utils
                    Frontend.ImageWidget
+                   Frontend.SimpleWidgets
                    Frontend.WebcamWidget
                    Frontend.Canvas
   -- other-modules:       
