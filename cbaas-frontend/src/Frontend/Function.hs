@@ -55,6 +55,7 @@ import GHCJS.Types (JSVal)
 import GHCJS.DOM.Location
 
 import Job
+import qualified Kind as K
 import Type
 import Pretty
 import Frontend.Expression
@@ -240,6 +241,9 @@ inputWidget doc k dynType = do
       txtwid <- textWidget def
       text k
       return $ ELit (TCon TCDouble knd) . VText <$> value txtwid
+    x -> do
+      text $ tShow x
+      return . constDyn $ ELit (TCon TCText K.Type) (VText $ tShow x)
     )
   join <$> holdDyn (defVal <$> dynType) inp
 
